@@ -170,3 +170,174 @@ func TestApply(t *testing.T) {
 		}
 	}
 }
+
+func TestDet(t *testing.T) {
+	m := [][]float64{
+		[]float64{1, 3, 1},
+		[]float64{1, 1, 2},
+		[]float64{2, 3, 4},
+	}
+
+	d := Det(m)
+
+	if d != -1 {
+		t.Error("Expected Det result -1,", d, "obtained")
+	}
+
+	m = [][]float64{
+		[]float64{3, 3},
+		[]float64{5, 2},
+	}
+
+	d = Det(m)
+
+	if d != -9 {
+		t.Error("Expected Det result -4,", d, "obtained")
+	}
+
+	m = [][]float64{
+		[]float64{3, 2, 1, 9},
+		[]float64{2, 7, 5, 4},
+		[]float64{3, 2, 9, 7},
+		[]float64{4, 3, 3, 1},
+	}
+
+	d = Det(m)
+
+	if d != -176 {
+		t.Error("Expected Det result -176,", d, "obtained")
+	}
+}
+
+func TestMinors(t *testing.T) {
+	m := [][]float64{
+		[]float64{1, 3, 1},
+		[]float64{1, 1, 2},
+		[]float64{2, 3, 4},
+	}
+
+	expectedRes := [][]float64{
+		[]float64{-2, 0, 1},
+		[]float64{9, 2, -3},
+		[]float64{5, 1, -2},
+	}
+
+	result := Minors(m)
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(result[0]); j++ {
+			if result[i][j] != expectedRes[i][j] {
+				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+			}
+		}
+	}
+}
+
+func TestCofactor(t *testing.T) {
+	m := [][]float64{
+		[]float64{1, 3, 1},
+		[]float64{1, -1, -2},
+		[]float64{2, 3, 4},
+	}
+
+	expectedRes := [][]float64{
+		[]float64{1, -3, 1},
+		[]float64{-1, -1, 2},
+		[]float64{2, -3, 4},
+	}
+
+	result := Cofactors(m)
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(result[0]); j++ {
+			if result[i][j] != expectedRes[i][j] {
+				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+			}
+		}
+	}
+}
+
+func TestInv(t *testing.T) {
+	m := [][]float64{
+		[]float64{1, 3, 1},
+		[]float64{1, 1, 2},
+		[]float64{2, 3, 4},
+	}
+
+	expectedRes := [][]float64{
+		[]float64{2, 9, -5},
+		[]float64{0, -2, 1},
+		[]float64{-1, -3, 2},
+	}
+
+	result := Inv(m)
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(result[0]); j++ {
+			if result[i][j] != expectedRes[i][j] {
+				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+			}
+		}
+	}
+}
+
+func TestDiv(t *testing.T) {
+	m1 := [][]float64{
+		[]float64{1, 2, 3},
+		[]float64{3, 2, 1},
+		[]float64{2, 1, 3},
+	}
+
+	m2 := [][]float64{
+		[]float64{4, 5, 6},
+		[]float64{6, 5, 4},
+		[]float64{4, 6, 5},
+	}
+
+	expectedRes := [][]float64{
+		[]float64{7.0/10.0, 3.0/10.0, 0},
+		[]float64{-3.0/10.0, 7.0/10.0, 0},
+		[]float64{6.0/5.0, 1.0/5.0, -1},
+	}
+
+	result := Div(m1, m2)
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(result); j++ {
+			if result[i][j] - expectedRes[i][j] > 0.000001 {
+				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+			}
+		}
+	}
+}
+
+func TestConcat(t *testing.T) {
+	m1 := [][]float64{
+		[]float64{1, 2, 3},
+		[]float64{3, 2, 1},
+		[]float64{2, 1, 3},
+	}
+
+	m2 := [][]float64{
+		[]float64{5, 6},
+		[]float64{5, 4},
+		[]float64{6, 5},
+	}
+
+	expectedRes := [][]float64{
+		[]float64{1, 2, 3, 5, 6},
+		[]float64{3, 2, 1, 5, 4},
+		[]float64{2, 1, 3, 6, 5},
+	}
+
+	result := Concat(m1, m2)
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(result); j++ {
+			if result[i][j] - expectedRes[i][j] > 0.000001 {
+				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+			}
+		}
+	}
+}
+
