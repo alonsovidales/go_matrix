@@ -146,6 +146,21 @@ func MultBy(m1 [][]float64, n float64) (rm [][]float64) {
 	return
 }
 
+// Multiply on matrix by the transpose of the second matrix
+func MultTrans(m1 [][]float64, m2 [][]float64) (rm [][]float64) {
+	rm = make([][]float64, len(m1))
+	// Initialize the matrix
+	for x := 0; x < len(m1); x++ {
+		rm[x] = make([]float64, len(m1))
+		for y := 0; y < len(m1); y++ {
+			for k := 0; k < len(m1[0]); k++ {
+				rm[x][y] += m1[x][k] * m2[y][k]
+			}
+		}
+	}
+
+	return
+}
 // Returns the rm of multiply the given two matrix
 func Mult(m1 [][]float64, m2 [][]float64) (rm [][]float64) {
 	rm = make([][]float64, len(m1))

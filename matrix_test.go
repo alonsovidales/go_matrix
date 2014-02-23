@@ -57,6 +57,28 @@ func TestMatrixSum(t *testing.T) {
 	}
 }
 
+func TestMultTrans(t *testing.T) {
+	m1 := [][]float64{
+		[]float64{3, 2, 1},
+		[]float64{9, 5, 7},
+	}
+	m2 := [][]float64{
+		[]float64{2, 3, 4},
+		[]float64{1, 4, 7},
+	}
+
+	expectedRes := Mult(m1, Trans(m2))
+	result := MultTrans(m1, m2)
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(result); j++ {
+			if result[i][j] != expectedRes[i][j] {
+				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+			}
+		}
+	}
+}
+
 func TestMultElems(t *testing.T) {
 	m1 := [][]float64{
 		[]float64{3, 2, 1},
