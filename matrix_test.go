@@ -4,6 +4,97 @@ import (
 	"testing"
 )
 
+func TestCudaNoCudaMult(t *testing.T) {
+
+	m1 := [][]float64{
+		[]float64{1, 5},
+		[]float64{1, 9},
+		[]float64{1, 6},
+		[]float64{1, 7},
+		[]float64{1, 8},
+		[]float64{1, 8},
+		[]float64{1, 5},
+		[]float64{1, 4},
+		[]float64{1, 1},
+		[]float64{1, 4},
+		[]float64{1, 7},
+		[]float64{1, 2},
+	}
+	m2 := [][]float64{
+		[]float64{1},
+		[]float64{3},
+	}
+
+	cudaRes := Mult(m1, m2)
+	expected := MultNoCuda(m1, m2)
+	for i := 0; i < len(cudaRes); i++ {
+		for j := 0; j < len(cudaRes[0]); j++ {
+			if cudaRes[i][j] != expected[i][j] {
+				t.Error("Expected result on pos:", i, j, ":", expected[i][j], "but obtained:", cudaRes[i][j])
+			}
+		}
+	}
+}
+
+func TestMatrixBigMultiplication(t *testing.T) {
+	height := 40
+	width := 60
+	m1 := make([][]float64, height)
+	for i := 0; i < height; i++ {
+		m1[i] = make([]float64, width)
+		for j := 0; j < width; j++ {
+			m1[i][j] = float64(i + j)
+		}
+	}
+	m2 := make([][]float64, width)
+	for i := 0; i < width; i++ {
+		m2[i] = make([]float64, height)
+		for j := 0; j < height; j++ {
+			m2[i][j] = float64(i + j)
+		}
+	}
+
+	cudaRes := Mult(m2, m1)
+	expected := MultNoCuda(m2, m1)
+
+	for i := 0; i < width; i++ {
+		for j := 0; j < width; j++ {
+			if cudaRes[i][j] != expected[i][j] {
+				t.Error("Expected result on pos:", i, j, ":", expected[i][j], "but obtained:", cudaRes[i][j])
+			}
+		}
+	}
+}
+
+func TestCudaMatrixMultiplication(t *testing.T) {
+	m1 := getCudaMatrix([][]float64{
+		[]float64{3, 2, 1},
+		[]float64{9, 5, 7},
+	})
+	m2 := getCudaMatrix([][]float64{
+		[]float64{2, 3},
+		[]float64{1, 4},
+		[]float64{2, 9},
+	})
+
+	expectedRes := [][]float64{
+		[]float64{10, 26},
+		[]float64{37, 110},
+	}
+
+	for i := 0; i < 10000; i++ {
+		result := CudaMult(m1, m2).getMatrixFromCuda()
+
+		for i := 0; i < len(result); i++ {
+			for j := 0; j < len(result); j++ {
+				if result[i][j] != expectedRes[i][j] {
+					t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+				}
+			}
+		}
+	}
+}
+
 func TestMatrixMultiplication(t *testing.T) {
 	m1 := [][]float64{
 		[]float64{3, 2, 1},
@@ -20,12 +111,14 @@ func TestMatrixMultiplication(t *testing.T) {
 		[]float64{37, 110},
 	}
 
-	result := Mult(m1, m2)
+	for i := 0; i < 10000; i++ {
+		result := Mult(m1, m2)
 
-	for i := 0; i < len(result); i++ {
-		for j := 0; j < len(result); j++ {
-			if result[i][j] != expectedRes[i][j] {
-				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+		for i := 0; i < len(result); i++ {
+			for j := 0; j < len(result); j++ {
+				if result[i][j] != expectedRes[i][j] {
+					t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+				}
 			}
 		}
 	}
@@ -362,4 +455,3 @@ func TestConcat(t *testing.T) {
 		}
 	}
 }
-
