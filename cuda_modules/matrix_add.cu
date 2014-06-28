@@ -14,19 +14,15 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixAdd(float* C, float* A, float* B, int wA, int resW, int resH, int resultSize, int matrixSplits)
+__global__ void matrixAdd(float* C, float* A, float* B, int width, int resW, int resH, int resultSize)
 {
-	for (int bx = 0; bx < matrixSplits; bx++) {
-		for (int by = 0; by < matrixSplits; by++) {
-			int x = threadIdx.x + (bx * resW);
-			int y = threadIdx.y + (by * resH);
-			int resultPos = y * wA + x;
+	int x = threadIdx.x + (blockIdx.x * resW);
+	int y = threadIdx.y + (blockIdx.y * resH);
+	int resultPos = y * width + x;
 
-			if (resultPos < resultSize && x < wA) {
-				C[resultPos] = A[resultPos] + B[resultPos];
-				//printf("Block %d - %d, thread %d - %d Val: %f\n", x, y, threadIdx.x, threadIdx.y, C[resultPos]);
-			}
-		}
+	if (resultPos < resultSize && x < width) {
+		C[resultPos] = A[resultPos] + B[resultPos];
+		//printf("Block %d - %d, thread %d - %d Val: %f\n", x, y, threadIdx.x, threadIdx.y, C[resultPos]);
 	}
 }
 

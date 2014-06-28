@@ -19,69 +19,48 @@ const KER_MATRIX_SUB = `
 	.param .u32 matrixSub_param_3,
 	.param .u32 matrixSub_param_4,
 	.param .u32 matrixSub_param_5,
-	.param .u32 matrixSub_param_6,
-	.param .u32 matrixSub_param_7
+	.param .u32 matrixSub_param_6
 )
 {
-	.reg .pred 	%p<7>;
-	.reg .s32 	%r<20>;
+	.reg .pred 	%p<4>;
+	.reg .s32 	%r<12>;
 	.reg .f32 	%f<4>;
 	.reg .s64 	%rd<11>;
 
 
-	ld.param.u64 	%rd4, [matrixSub_param_0];
-	ld.param.u64 	%rd5, [matrixSub_param_1];
-	ld.param.u64 	%rd6, [matrixSub_param_2];
-	ld.param.u32 	%r9, [matrixSub_param_3];
-	ld.param.u32 	%r10, [matrixSub_param_4];
-	ld.param.u32 	%r11, [matrixSub_param_5];
-	ld.param.u32 	%r12, [matrixSub_param_6];
-	ld.param.u32 	%r13, [matrixSub_param_7];
-	setp.lt.s32	%p1, %r13, 1;
-	@%p1 bra 	BB0_7;
+	ld.param.u64 	%rd1, [matrixSub_param_0];
+	ld.param.u64 	%rd2, [matrixSub_param_1];
+	ld.param.u64 	%rd3, [matrixSub_param_2];
+	ld.param.u32 	%r2, [matrixSub_param_3];
+	ld.param.u32 	%r3, [matrixSub_param_4];
+	ld.param.u32 	%r4, [matrixSub_param_5];
+	ld.param.u32 	%r5, [matrixSub_param_6];
+	mov.u32 	%r6, %ctaid.x;
+	mov.u32 	%r7, %tid.x;
+	mad.lo.s32 	%r8, %r6, %r3, %r7;
+	mov.u32 	%r9, %ctaid.y;
+	mov.u32 	%r10, %tid.y;
+	mad.lo.s32 	%r11, %r9, %r4, %r10;
+	mad.lo.s32 	%r1, %r11, %r2, %r8;
+	setp.lt.s32	%p1, %r1, %r5;
+	setp.lt.s32	%p2, %r8, %r2;
+	and.pred  	%p3, %p1, %p2;
+	@!%p3 bra 	BB0_2;
+	bra.uni 	BB0_1;
 
-	cvta.to.global.u64 	%rd1, %rd4;
-	cvta.to.global.u64 	%rd2, %rd6;
-	cvta.to.global.u64 	%rd3, %rd5;
-	mov.u32 	%r1, %tid.x;
-	mov.u32 	%r2, %tid.y;
-	mov.u32 	%r14, 0;
-	mov.u32 	%r19, %r14;
-
-BB0_2:
-	mad.lo.s32 	%r4, %r19, %r10, %r1;
-	mov.u32 	%r18, %r14;
-
-BB0_3:
-	mov.u32 	%r5, %r18;
-	mad.lo.s32 	%r16, %r5, %r11, %r2;
-	mad.lo.s32 	%r6, %r16, %r9, %r4;
-	setp.lt.s32	%p2, %r6, %r12;
-	setp.lt.s32	%p3, %r4, %r9;
-	and.pred  	%p4, %p2, %p3;
-	@!%p4 bra 	BB0_5;
-	bra.uni 	BB0_4;
-
-BB0_4:
-	mul.wide.s32 	%rd7, %r6, 4;
-	add.s64 	%rd8, %rd3, %rd7;
-	add.s64 	%rd9, %rd2, %rd7;
+BB0_1:
+	cvta.to.global.u64 	%rd4, %rd1;
+	cvta.to.global.u64 	%rd5, %rd3;
+	cvta.to.global.u64 	%rd6, %rd2;
+	mul.wide.s32 	%rd7, %r1, 4;
+	add.s64 	%rd8, %rd6, %rd7;
+	add.s64 	%rd9, %rd5, %rd7;
 	ld.global.f32 	%f1, [%rd9];
 	ld.global.f32 	%f2, [%rd8];
 	sub.f32 	%f3, %f2, %f1;
-	add.s64 	%rd10, %rd1, %rd7;
+	add.s64 	%rd10, %rd4, %rd7;
 	st.global.f32 	[%rd10], %f3;
 
-BB0_5:
-	add.s32 	%r7, %r5, 1;
-	setp.lt.s32	%p5, %r7, %r13;
-	mov.u32 	%r18, %r7;
-	@%p5 bra 	BB0_3;
-
-	add.s32 	%r19, %r19, 1;
-	setp.lt.s32	%p6, %r19, %r13;
-	@%p6 bra 	BB0_2;
-
-BB0_7:
+BB0_2:
 	ret;
 }`

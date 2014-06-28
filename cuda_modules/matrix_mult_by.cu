@@ -14,19 +14,15 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixMultBy(float* A, float multBy, int wA, int hA, int width, int finalSize, int matrixSplits)
+__global__ void matrixMultBy(float* A, float multBy, int width, int resW, int resH, int finalSize)
 {
-	for (int bx = 0; bx < matrixSplits; bx++) {
-		for (int by = 0; by < matrixSplits; by++) {
-			int x = threadIdx.x + (bx * wA);
-			int y = threadIdx.y + (by * hA);
-			int resultPos = y * width + x;
+	int x = threadIdx.x + (blockIdx.x * resW);
+	int y = threadIdx.y + (blockIdx.y * resH);
+	int resultPos = y * width + x;
 
-			if (resultPos < finalSize && x <  width) {
-				A[resultPos] *= multBy;
-				//printf("Block %d - %d, thread %d - %d Val: %f\n", x, y, threadIdx.x, threadIdx.y, A[resultPos]);
-			}
-		}
+	if (resultPos < finalSize && x < width) {
+		A[resultPos] *= multBy;
+		//printf("Block %d - %d, thread %d - %d Val: %f\n", x, y, threadIdx.x, threadIdx.y, A[resultPos]);
 	}
 }
 

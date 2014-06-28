@@ -5,7 +5,6 @@ package mt
 
 import (
 	"math"
-	"fmt"
 	"github.com/barnex/cuda5/cu"
 	"unsafe"
 )
@@ -16,14 +15,18 @@ type CudaMatrix struct {
 	h int
 }
 
-var currentBuff = ""
-var userMem = make(map[string]map[cu.DevicePtr]bool)
-
 const DEBUG = false
 const CUDA_DEVICE = 0
 
-var multMod, subMod, addMod, multAllMod, negMatrixMod, multTransMod, multByMod,
-	sigmoidMatrixMod, logMatrixMod, oneMinusMod, addBiasMod, removeBias, powTwoMod, sigmoidGradMod cu.Function
+var currentBuff = "default"
+var userMem = map[string]map[cu.DevicePtr]bool{
+	currentBuff: make(map[cu.DevicePtr]bool),
+}
+
+var addBiasTopMod, multMod, subMod, addMod, multAllMod, negMatrixMod,
+	multTransMod, multByMod, removeBiasTopMod, transMod, sigmoidMatrixMod,
+	logMatrixMod, oneMinusMod, addBiasMod, removeBias, powTwoMod, sigmoidGradMod,
+	sumAll cu.Function
 var maxNumThreads int
 var cudaInitialized = false
 var ctx cu.Context
@@ -69,6 +72,14 @@ func InitCuda() {
 			sigmoidGradMod = mod.GetFunction("matrixSigmoidGrad")
 			mod = cu.ModuleLoad("/cuda_modules/matrix_mult_by.ptx")
 			multByMod = mod.GetFunction("matrixMultBy")
+			mod = cu.ModuleLoad("/cuda_modules/matrix_add_bias_top.ptx")
+			addBiasTopMod = mod.GetFunction("matrixAddBiasTop")
+			mod = cu.ModuleLoad("/cuda_modules/matrix_remove_bias_top.ptx")
+			removeBiasTopMod = mod.GetFunction("matrixRemoveBiasTop")
+			mod = cu.ModuleLoad("/cuda_modules/matrix_trans.ptx")
+			transMod = mod.GetFunction("matrixTrans")
+			mod = cu.ModuleLoad("/cuda_modules/matrix_sum_all.ptx")
+			sumAll = mod.GetFunction("matrixSumAll")
 		} else {
 			mod = cu.ModuleLoadData(KER_MATRIX_MULT)
 			multMod = mod.GetFunction("matrixMul")
@@ -98,6 +109,14 @@ func InitCuda() {
 			sigmoidGradMod = mod.GetFunction("matrixSigmoidGrad")
 			mod = cu.ModuleLoadData(KER_MATRIX_MULT_BY)
 			multByMod = mod.GetFunction("matrixMultBy")
+			mod = cu.ModuleLoadData(KER_MATRIX_ADD_BIAS_TOP)
+			addBiasTopMod = mod.GetFunction("matrixAddBiasTop")
+			mod = cu.ModuleLoadData(KER_MATRIX_REMOVE_BIAS_TOP)
+			removeBiasTopMod = mod.GetFunction("matrixRemoveBiasTop")
+			mod = cu.ModuleLoadData(KER_MATRIX_TRANS)
+			transMod = mod.GetFunction("matrixTrans")
+			mod = cu.ModuleLoadData(KER_MATRIX_SUM_ALL)
+			sumAll = mod.GetFunction("matrixSumAll")
 		}
 
 		cudaInitialized = true
@@ -115,13 +134,17 @@ func StartBufferingMem(buff string) {
 	userMem[buff] = make(map[cu.DevicePtr]bool)
 }
 
+func SetDefaultBuff() {
+	currentBuff = "default"
+}
+
 func AddToBuff(ptr cu.DevicePtr) {
 	if currentBuff != "" {
 		userMem[currentBuff][ptr] = true
 	}
 }
 
-func FreeMem(buff string) {
+func FreeMem() {
 	for m, _ := range(userMem[currentBuff]) {
 		cu.MemFree(m)
 		delete(userMem[currentBuff], m)
@@ -136,9 +159,6 @@ func (p *CudaMatrix) Free() {
 func InitCudaMatrix(w int, h int) (p *CudaMatrix) {
 	size := int64(w * h) * cu.SIZEOF_FLOAT32
 	InitCuda()
-	if DEBUG {
-		fmt.Println("InitCudaMatrix")
-	}
 	p = &CudaMatrix {
 		w: w,
 		h: h,
@@ -155,6 +175,12 @@ func InitCudaMatrix(w int, h int) (p *CudaMatrix) {
 func (m *CudaMatrix) CudaCopyTo(t *CudaMatrix) (*CudaMatrix) {
 	size := int64(m.w * m.h) * cu.SIZEOF_FLOAT32
 	InitCuda()
+	if t.w == 0 && t.h == 0 {
+		t.m = cu.MemAlloc(size)
+		t.w = m.w
+		t.h = m.h
+		AddToBuff(t.m)
+	}
 	cu.MemcpyDtoD(t.m, m.m, size)
 
 	return t
@@ -164,9 +190,6 @@ func (m *CudaMatrix) CudaCopy() (r *CudaMatrix) {
 	size := int64(m.w * m.h) * cu.SIZEOF_FLOAT32
 
 	InitCuda()
-	if DEBUG {
-		fmt.Println("CudaCopy")
-	}
 	r = &CudaMatrix {
 		m: cu.MemAlloc(size),
 		w: m.w,
@@ -179,9 +202,6 @@ func (m *CudaMatrix) CudaCopy() (r *CudaMatrix) {
 }
 
 func GetCudaMatrix(m [][]float32) (p *CudaMatrix) {
-	if DEBUG {
-		fmt.Println("GetCudaMatrix")
-	}
 	p = &CudaMatrix {
 		w: len(m[0]),
 		h: len(m),
@@ -226,39 +246,34 @@ func (p *CudaMatrix) GetMatrixFromCuda() (m [][]float32) {
 
 // Returns the rm of Multiply the given two matrix
 func CudaMultAllElemsTo(m1 *CudaMatrix, m2 *CudaMatrix, rm *CudaMatrix) (*CudaMatrix) {
-	matrixSplits := int(math.Ceil(float64(rm.w * rm.h) / float64(maxNumThreads)))
-	resultSize := rm.w * rm.h
-
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(m1.w, m1.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
 		unsafe.Pointer(&m1.m),
 		unsafe.Pointer(&m2.m),
+
 		unsafe.Pointer(&m1.w),
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&resultSize),
-		unsafe.Pointer(&matrixSplits),
 	}
 
 	InitCuda()
-	cu.LaunchKernel(multAllMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	cu.CtxSynchronize()
+	launchKernelSync(multAllMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
+	cu.CtxSynchronize()
 
 	return rm
+}
+
+func CudaSync() {
+	cu.CtxSynchronize()
 }
 
 // Returns the rm of Multiply the given two matrix
 func CudaMultAllElems(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 	InitCuda()
-	if DEBUG {
-		fmt.Println("CudaMultAllElems")
-	}
 	rm = &CudaMatrix{
 		w: m2.w,
 		h: m1.h,
@@ -266,28 +281,20 @@ func CudaMultAllElems(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 	}
 	AddToBuff(rm.m)
 
-	matrixSplits := int(math.Ceil(float64(rm.w * rm.h) / float64(maxNumThreads)))
-	resultSize := rm.w * rm.h
-
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(m1.w, m1.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
 		unsafe.Pointer(&m1.m),
 		unsafe.Pointer(&m2.m),
+
 		unsafe.Pointer(&m1.w),
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&resultSize),
-		unsafe.Pointer(&matrixSplits),
 	}
 
-	cu.LaunchKernel(multAllMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(multAllMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return
 }
@@ -317,27 +324,25 @@ func (m *CudaMatrix) SetPosTo(val float32, x int, y int) (*CudaMatrix) {
 }
 
 func (m *CudaMatrix) RemoveBiasTo(rm *CudaMatrix) (*CudaMatrix) {
-	size := rm.w * rm.h
-	matrixSplits := int(math.Ceil(float64(size) / float64(maxNumThreads)))
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
+	if rm.w == 0 && rm.h == 0 {
+		rm.w = m.w - 1
+		rm.h = m.h
+		rm.m = cu.MemAlloc(int64(rm.w * rm.h) * cu.SIZEOF_FLOAT32)
+		AddToBuff(rm.m)
 	}
+
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
 		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&rm.w),
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
-		unsafe.Pointer(&rm.w),
-		unsafe.Pointer(&size),
-		unsafe.Pointer(&matrixSplits),
+		unsafe.Pointer(&resultSize),
 	}
 
-	InitCuda()
-	cu.LaunchKernel(removeBias, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(removeBias, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return rm
 }
@@ -345,24 +350,40 @@ func (m *CudaMatrix) RemoveBiasTo(rm *CudaMatrix) (*CudaMatrix) {
 func (m *CudaMatrix) RemoveBias() (rm *CudaMatrix) {
 	InitCuda()
 
-	if DEBUG {
-		fmt.Println("RemoveBias")
-	}
 	rm = &CudaMatrix{
 		w: m.w - 1,
 		h: m.h,
 		m: cu.MemAlloc(int64((m.w - 1) * m.h) * cu.SIZEOF_FLOAT32),
 	}
-	AddToBuff(m.m)
+	AddToBuff(rm.m)
 
-	size := rm.w * rm.h
-	matrixSplits := int(math.Ceil(float64(size) / float64(maxNumThreads)))
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
+
+	args := []unsafe.Pointer{
+		unsafe.Pointer(&rm.m),
+		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&rm.w),
+		unsafe.Pointer(&resW),
+		unsafe.Pointer(&resH),
+		unsafe.Pointer(&resultSize),
 	}
+
+	launchKernelSync(removeBias, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
+
+	return
+}
+
+func (m *CudaMatrix) TransTo(rm *CudaMatrix) (*CudaMatrix) {
+	InitCuda()
+
+	if rm.w + rm.h == 0 {
+		rm.w = m.h
+		rm.h = m.w
+		rm.m = cu.MemAlloc(int64(m.w * m.h) * cu.SIZEOF_FLOAT32)
+		AddToBuff(rm.m)
+	}
+
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
@@ -370,47 +391,170 @@ func (m *CudaMatrix) RemoveBias() (rm *CudaMatrix) {
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&rm.w),
-		unsafe.Pointer(&size),
-		unsafe.Pointer(&matrixSplits),
+		unsafe.Pointer(&rm.h),
+		unsafe.Pointer(&resultSize),
 	}
 
-	cu.LaunchKernel(removeBias, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(transMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
+
+	return rm
+}
+
+func (m *CudaMatrix) Trans() (rm *CudaMatrix) {
+	InitCuda()
+
+	rm = &CudaMatrix{
+		w: m.h,
+		h: m.w,
+		m: cu.MemAlloc(int64(m.w * m.h) * cu.SIZEOF_FLOAT32),
+	}
+	AddToBuff(rm.m)
+
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
+
+	args := []unsafe.Pointer{
+		unsafe.Pointer(&rm.m),
+		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&resW),
+		unsafe.Pointer(&resH),
+		unsafe.Pointer(&rm.w),
+		unsafe.Pointer(&rm.h),
+		unsafe.Pointer(&resultSize),
+	}
+
+	launchKernelSync(transMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return
 }
 
 func (m *CudaMatrix) AddBiasTo(rm *CudaMatrix) (*CudaMatrix) {
-	size := rm.w * rm.h
-	matrixSplits := int(math.Ceil(float64(size) / float64(maxNumThreads)))
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
 		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&rm.w),
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&rm.w),
-		unsafe.Pointer(&size),
-		unsafe.Pointer(&matrixSplits),
+		unsafe.Pointer(&resultSize),
 	}
 
 	InitCuda()
-	cu.LaunchKernel(addBiasMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(addBiasMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return rm
+}
+
+func (m *CudaMatrix) RemoveBiasTopTo(rm *CudaMatrix) (*CudaMatrix) {
+	InitCuda()
+
+	if rm.w + rm.h == 0 {
+		rm.w = m.w
+		rm.h = m.h - 1
+		rm.m = cu.MemAlloc(int64(m.w * (m.h + 1)) * cu.SIZEOF_FLOAT32)
+		AddToBuff(rm.m)
+	}
+
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
+
+	args := []unsafe.Pointer{
+		unsafe.Pointer(&rm.m),
+		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&rm.w),
+
+		unsafe.Pointer(&resW),
+		unsafe.Pointer(&resH),
+		unsafe.Pointer(&resultSize),
+	}
+
+	launchKernelSync(removeBiasTopMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
+
+	return rm
+}
+
+func (m *CudaMatrix) RemoveBiasTop() (rm *CudaMatrix) {
+	InitCuda()
+
+	rm = &CudaMatrix{
+		w: m.w,
+		h: m.h - 1,
+		m: cu.MemAlloc(int64(m.w * (m.h + 1)) * cu.SIZEOF_FLOAT32),
+	}
+	AddToBuff(rm.m)
+
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
+
+	args := []unsafe.Pointer{
+		unsafe.Pointer(&rm.m),
+		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&rm.w),
+
+		unsafe.Pointer(&resW),
+		unsafe.Pointer(&resH),
+		unsafe.Pointer(&resultSize),
+	}
+
+	launchKernelSync(removeBiasTopMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
+
+	return
+}
+
+func (m *CudaMatrix) AddBiasTopTo(rm *CudaMatrix) (*CudaMatrix) {
+	InitCuda()
+
+	if rm.w == 0 && rm.h == 0 {
+		rm.h = m.h + 1
+		rm.w = m.w
+		rm.m = cu.MemAlloc(int64(m.w * (m.h + 1)) * cu.SIZEOF_FLOAT32)
+		AddToBuff(rm.m)
+	}
+
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
+
+	args := []unsafe.Pointer{
+		unsafe.Pointer(&rm.m),
+		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&rm.w),
+		unsafe.Pointer(&resW),
+		unsafe.Pointer(&resH),
+		unsafe.Pointer(&resultSize),
+	}
+
+	launchKernelSync(addBiasTopMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
+
+	return rm
+}
+
+func (m *CudaMatrix) AddBiasTop() (rm *CudaMatrix) {
+	InitCuda()
+
+	rm = &CudaMatrix{
+		w: m.w,
+		h: m.h + 1,
+		m: cu.MemAlloc(int64(m.w * (m.h + 1)) * cu.SIZEOF_FLOAT32),
+	}
+	AddToBuff(rm.m)
+
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
+
+	args := []unsafe.Pointer{
+		unsafe.Pointer(&rm.m),
+		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&rm.w),
+		unsafe.Pointer(&resW),
+		unsafe.Pointer(&resH),
+		unsafe.Pointer(&resultSize),
+	}
+
+	launchKernelSync(addBiasTopMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
+
+	return
 }
 
 func (m *CudaMatrix) AddBias() (rm *CudaMatrix) {
 	InitCuda()
 
-	if DEBUG {
-		fmt.Println("AddBias")
-	}
 	rm = &CudaMatrix{
 		w: m.w + 1,
 		h: m.h,
@@ -418,85 +562,84 @@ func (m *CudaMatrix) AddBias() (rm *CudaMatrix) {
 	}
 	AddToBuff(rm.m)
 
-	size := rm.w * rm.h
-	matrixSplits := int(math.Ceil(float64(size) / float64(maxNumThreads)))
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
 		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&rm.w),
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
-		unsafe.Pointer(&rm.w),
-		unsafe.Pointer(&size),
-		unsafe.Pointer(&matrixSplits),
+		unsafe.Pointer(&resultSize),
 	}
 
-	cu.LaunchKernel(addBiasMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(addBiasMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return
 }
 
 func (m *CudaMatrix) MultBy(by float32) (*CudaMatrix) {
 	InitCuda()
-
-	size := m.w * m.h
-	matrixSplits := int(math.Ceil(float64(size) / float64(maxNumThreads)))
-	resW := m.w
-	resH := m.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(m.w, m.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&m.m),
 		unsafe.Pointer(&by),
+		unsafe.Pointer(&m.w),
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
-		unsafe.Pointer(&m.w),
-		unsafe.Pointer(&size),
-		unsafe.Pointer(&matrixSplits),
+		unsafe.Pointer(&resultSize),
 	}
 
-	cu.LaunchKernel(multByMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(multByMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return m
+}
+
+func (m *CudaMatrix) SumAll() (float32) {
+	// Note: Don't split in blocks
+	InitCuda()
+
+	cu.CtxSynchronize()
+	size := m.w * m.h
+	matrixSplits := int(math.Ceil(float64(size) / float64(maxNumThreads)))
+
+	sumP := cu.MemAllocHost(cu.SIZEOF_FLOAT32)
+	args := []unsafe.Pointer{
+		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&matrixSplits),
+		unsafe.Pointer(&size),
+		unsafe.Pointer(&sumP),
+	}
+
+	threads := maxNumThreads
+	if size < maxNumThreads {
+		threads = maxNumThreads
+	}
+	launchKernelSync(sumAll, 1, 1, 1, threads, 1, 1, 0, 0, args)
+	cu.CtxSynchronize()
+
+	return *(*float32)(sumP)
 }
 
 func (m *CudaMatrix) applyFunc(function cu.Function) {
 	InitCuda()
 
-	size := m.w * m.h
-	matrixSplits := int(math.Ceil(float64(size) / float64(maxNumThreads)))
-	resW := m.w
-	resH := m.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
-
-	//fmt.Println("WINDOW W:", resW, "H:", resH, "W:", m.w, "h:", m.h, "Splits:", matrixSplits)
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(m.w, m.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&m.m),
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&m.w),
-		unsafe.Pointer(&size),
-		unsafe.Pointer(&matrixSplits),
+		unsafe.Pointer(&resultSize),
 	}
 
-	cu.LaunchKernel(function, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(function, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 }
 
 // Returns the rm of Multiply the given two matrix
-func (m *CudaMatrix) CudaLogMatrix() (*CudaMatrix) {
+func (m *CudaMatrix) Log() (*CudaMatrix) {
 	m.applyFunc(logMatrixMod)
 
 	return m
@@ -510,14 +653,14 @@ func (m *CudaMatrix) SigmoidGradient() (*CudaMatrix) {
 }
 
 // Returns the rm of Multiply the given two matrix
-func (m *CudaMatrix) CudaSigmoidMatrix() (*CudaMatrix) {
+func (m *CudaMatrix) Sigmoid() (*CudaMatrix) {
 	m.applyFunc(sigmoidMatrixMod)
 
 	return m
 }
 
 // Returns the rm of Multiply the given two matrix
-func (m *CudaMatrix) CudaOneMinusMatrix() (*CudaMatrix) {
+func (m *CudaMatrix) OneMinus() (*CudaMatrix) {
 	m.applyFunc(oneMinusMod)
 
 	return m
@@ -531,7 +674,7 @@ func (m *CudaMatrix) PowTwo() (*CudaMatrix) {
 }
 
 // Returns the rm of Multiply the given two matrix
-func (m *CudaMatrix) CudaNegMatrix() (*CudaMatrix) {
+func (m *CudaMatrix) Neg() (*CudaMatrix) {
 	m.applyFunc(negMatrixMod)
 
 	return m
@@ -540,7 +683,7 @@ func (m *CudaMatrix) CudaNegMatrix() (*CudaMatrix) {
 func Neg(m [][]float32) (rm [][]float32) {
 	cm := GetCudaMatrix(m)
 
-	cm.CudaNegMatrix()
+	cm.Neg()
 
 	rm = cm.GetMatrixFromCuda()
 
@@ -563,12 +706,43 @@ func MultElemsNoCuda(m1 [][]float32, m2 [][]float32) (rm [][]float32) {
 	return
 }
 
+func getGridThreadsFromSize(w, h int) (resW, resH, gridsW, gridsH, size int) {
+	if w > h {
+		if w > maxNumThreads{
+			resW = maxNumThreads
+			resH = 1
+		} else {
+			resW = w
+			resH = int(float64(maxNumThreads) / float64(resW))
+		}
+	} else {
+		if h > maxNumThreads{
+			resH = maxNumThreads
+			resW = 1
+		} else {
+			resH = h
+			resW = int(float64(maxNumThreads) / float64(resH))
+		}
+	}
+	if resW > w {
+		resW = w
+	}
+	if resH > w {
+		resH = h
+	}
+
+	gridsW = int(math.Ceil(float64(w) / float64(resW)))
+	gridsH = int(math.Ceil(float64(h) / float64(resH)))
+
+	size = w * h
+
+	return
+}
+
 // Returns the rm of Multiply the given two matrix
 func CudaMult(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
+	var resH, resW int
 	InitCuda()
-	if DEBUG {
-		fmt.Println("CudaMult")
-	}
 	rm = &CudaMatrix{
 		w: m2.w,
 		h: m1.h,
@@ -576,15 +750,7 @@ func CudaMult(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 	}
 	AddToBuff(rm.m)
 
-	matrixSplits := int(math.Ceil(float64(rm.w * rm.h) / float64(maxNumThreads)))
-	resultSize := rm.w * rm.h
-
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
@@ -595,24 +761,15 @@ func CudaMult(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&resultSize),
-		unsafe.Pointer(&matrixSplits),
 	}
 
-	cu.LaunchKernel(multMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(multMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return
 }
 
 func CudaMultTo(m1 *CudaMatrix, m2 *CudaMatrix, rm *CudaMatrix) (*CudaMatrix) {
-	matrixSplits := int(math.Ceil(float64(rm.w * rm.h) / float64(maxNumThreads)))
-	resultSize := rm.w * rm.h
-
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
@@ -623,11 +780,10 @@ func CudaMultTo(m1 *CudaMatrix, m2 *CudaMatrix, rm *CudaMatrix) (*CudaMatrix) {
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&resultSize),
-		unsafe.Pointer(&matrixSplits),
 	}
 
 	InitCuda()
-	cu.LaunchKernel(multMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(multMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return rm
 }
@@ -663,15 +819,7 @@ func MultNoCuda(m1 [][]float32, m2 [][]float32) (rm [][]float32) {
 
 // Returns the rm of Multiply the given two matrix
 func CudaSubTo(m1 *CudaMatrix, m2 *CudaMatrix, rm *CudaMatrix) (*CudaMatrix) {
-	matrixSplits := int(math.Ceil(float64(rm.w * rm.h) / float64(maxNumThreads)))
-	resultSize := rm.w * rm.h
-
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
@@ -681,11 +829,12 @@ func CudaSubTo(m1 *CudaMatrix, m2 *CudaMatrix, rm *CudaMatrix) (*CudaMatrix) {
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&resultSize),
-		unsafe.Pointer(&matrixSplits),
 	}
 
 	InitCuda()
-	cu.LaunchKernel(subMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	cu.CtxSynchronize()
+	launchKernelSync(subMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
+	cu.CtxSynchronize()
 
 	return rm
 }
@@ -693,9 +842,6 @@ func CudaSubTo(m1 *CudaMatrix, m2 *CudaMatrix, rm *CudaMatrix) (*CudaMatrix) {
 // Returns the rm of Multiply the given two matrix
 func CudaSub(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 	InitCuda()
-	if DEBUG {
-		fmt.Println("CudaSub")
-	}
 	rm = &CudaMatrix{
 		w: m1.w,
 		h: m1.h,
@@ -703,15 +849,7 @@ func CudaSub(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 	}
 	AddToBuff(rm.m)
 
-	matrixSplits := int(math.Ceil(float64(rm.w * rm.h) / float64(maxNumThreads)))
-	resultSize := rm.w * rm.h
-
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
@@ -721,10 +859,9 @@ func CudaSub(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&resultSize),
-		unsafe.Pointer(&matrixSplits),
 	}
 
-	cu.LaunchKernel(subMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(subMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return
 }
@@ -758,15 +895,7 @@ func SubNoCuda(m1 [][]float32, m2 [][]float32) (rm [][]float32) {
 
 // Returns the rm of Multiply the given two matrix
 func CudaSumTo(m1 *CudaMatrix, m2 *CudaMatrix, rm *CudaMatrix) (*CudaMatrix) {
-	matrixSplits := int(math.Ceil(float64(rm.w * rm.h) / float64(maxNumThreads)))
-	resultSize := rm.w * rm.h
-
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
@@ -776,11 +905,10 @@ func CudaSumTo(m1 *CudaMatrix, m2 *CudaMatrix, rm *CudaMatrix) (*CudaMatrix) {
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&resultSize),
-		unsafe.Pointer(&matrixSplits),
 	}
 
 	InitCuda()
-	cu.LaunchKernel(addMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(addMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return rm
 }
@@ -788,9 +916,6 @@ func CudaSumTo(m1 *CudaMatrix, m2 *CudaMatrix, rm *CudaMatrix) (*CudaMatrix) {
 // Returns the rm of Multiply the given two matrix
 func CudaSum(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 	InitCuda()
-	if DEBUG {
-		fmt.Println("CudaSum")
-	}
 	rm = &CudaMatrix{
 		w: m1.w,
 		h: m1.h,
@@ -798,15 +923,7 @@ func CudaSum(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 	}
 	AddToBuff(rm.m)
 
-	matrixSplits := int(math.Ceil(float64(rm.w * rm.h) / float64(maxNumThreads)))
-	resultSize := rm.w * rm.h
-
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
@@ -816,10 +933,9 @@ func CudaSum(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
 		unsafe.Pointer(&resultSize),
-		unsafe.Pointer(&matrixSplits),
 	}
 
-	cu.LaunchKernel(addMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(addMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return
 }
@@ -837,39 +953,29 @@ func Sum(m1 [][]float32, m2 [][]float32) (rm [][]float32) {
 }
 
 func CudaMultTransTo(m1 *CudaMatrix, m2 *CudaMatrix, rm *CudaMatrix) (*CudaMatrix) {
-	matrixSplits := int(math.Ceil(float64(rm.w * rm.h) / float64(maxNumThreads)))
-	resultSize := rm.w * rm.h
-
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	InitCuda()
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
 		unsafe.Pointer(&m1.m),
 		unsafe.Pointer(&m2.m),
+
 		unsafe.Pointer(&m1.w),
-		unsafe.Pointer(&rm.w),
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
+		unsafe.Pointer(&rm.w),
+
 		unsafe.Pointer(&resultSize),
-		unsafe.Pointer(&matrixSplits),
 	}
 
-	cu.LaunchKernel(multTransMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(multTransMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return rm
 }
 
 // Returns the rm of Multiply the given two matrix
 func CudaMultTrans(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
-	if DEBUG {
-		fmt.Println("CudaMultTrans")
-	}
 	InitCuda()
 	rm = &CudaMatrix{
 		w: m2.h,
@@ -878,29 +984,22 @@ func CudaMultTrans(m1 *CudaMatrix, m2 *CudaMatrix) (rm *CudaMatrix) {
 	}
 	AddToBuff(rm.m)
 
-	matrixSplits := int(math.Ceil(float64(rm.w * rm.h) / float64(maxNumThreads)))
-	resultSize := rm.w * rm.h
-
-	resW := rm.w
-	resH := rm.h
-	if matrixSplits > 1 {
-		resW = int(math.Ceil(float64(resW) / float64(matrixSplits)))
-		resH = int(math.Ceil(float64(resH) / float64(matrixSplits)))
-	}
+	resW, resH, gridsW, gridsH, resultSize := getGridThreadsFromSize(rm.w, rm.h)
 
 	args := []unsafe.Pointer{
 		unsafe.Pointer(&rm.m),
 		unsafe.Pointer(&m1.m),
 		unsafe.Pointer(&m2.m),
+
 		unsafe.Pointer(&m1.w),
-		unsafe.Pointer(&rm.w),
 		unsafe.Pointer(&resW),
 		unsafe.Pointer(&resH),
+		unsafe.Pointer(&rm.w),
+
 		unsafe.Pointer(&resultSize),
-		unsafe.Pointer(&matrixSplits),
 	}
 
-	cu.LaunchKernel(multTransMod, 1, 1, 1, resW, resH, 1, 0, 0, args)
+	launchKernelSync(multTransMod, gridsW, gridsH, 1, resW, resH, 1, 0, 0, args)
 
 	return
 }
@@ -1128,4 +1227,9 @@ func Concat(m1 [][]float32, m2 [][]float32) (rm [][]float32) {
 	}
 
 	return
+}
+
+func launchKernelSync(f cu.Function, gridDimX, gridDimY, gridDimZ int, blockDimX, blockDimY, blockDimZ int, sharedMemBytes int, stream cu.Stream, kernelParams []unsafe.Pointer) {
+	cu.LaunchKernel(f, gridDimX, gridDimY, gridDimZ, blockDimX, blockDimY, blockDimZ, sharedMemBytes, stream, kernelParams)
+	cu.CtxSynchronize()
 }

@@ -14,31 +14,27 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixMulTrans(float* C, float* A, float* B, int wA, int resRealW, int resW, int resH, int resultSize, int matrixSplits)
+__global__ void matrixMulTrans(float* C, float* A, float* B, int wA, int resW, int resH, int resultWidth, int resultSize)
 {
-	for (int bx = 0; bx < matrixSplits; bx++) {
-		for (int by = 0; by < matrixSplits; by++) {
-			int x = threadIdx.x + (bx * resW);
-			int y = threadIdx.y + (by * resH);
-			int resultPos = y * resRealW + x;
+	int x = threadIdx.x + (blockIdx.x * resW);
+	int y = threadIdx.y + (blockIdx.y * resH);
+	int resultPos = y * resultWidth + x;
 
-			//printf("Thread %d - %d: %d. Final: x: %d y: %d Size: %d\n", threadIdx.x, threadIdx.y, resultPos, x, y, resultSize);
-			if ((resultPos < resultSize) && (x < resRealW)) {
-				// value stores the element that is 
-				// computed by the thread
-				float value = 0;
-				for (int i = 0; i < wA; ++i)
-				{
-					value += A[y * wA + i] * B[x * wA + i];
-				}
+	//printf("Thread %d - %d: %d. Final: x: %d y: %d Size: %d\n", threadIdx.x, threadIdx.y, resultPos, x, y, resultSize);
+	if (resultPos < resultSize && x < resultWidth) {
+		// value stores the element that is 
+		// computed by the thread
+		float value = 0;
+		for (int i = 0; i < wA; ++i)
+		{
+			value += A[y * wA + i] * B[x * wA + i];
 
-				// Write the matrix to device memory each 
-				// thread writes one element
-				C[resultPos] = value;
-	
-				//printf("Block %d - %d, thread %d - %d : Pos: %d Val: %f\n", x, y, threadIdx.x, threadIdx.y, resultPos, value);
-			}
+			//printf("Pos %d - %d, thread %d - %d : pos: %d %d H: %d Pos: %d Val: %f\n", blockIdx.x, blockIdx.y, threadIdx.x, threadIdx.y, x, y, resultWidth, resultPos, value);
 		}
+
+		// Write the matrix to device memory each 
+		// thread writes one element
+		C[resultPos] = value;
 	}
 }
 

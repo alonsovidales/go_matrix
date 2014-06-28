@@ -4,6 +4,82 @@ import (
 	"testing"
 )
 
+func TestMultTrans(t *testing.T) {
+	height := 35
+	width := 20
+	m1 := make([][]float32, height)
+	for i := 0; i < height; i++ {
+		m1[i] = make([]float32, width)
+		for j := 0; j < width; j++ {
+			m1[i][j] = float32(i + j)
+		}
+	}
+	height = 35
+	width = 20
+	m2 := make([][]float32, height)
+	for i := 0; i < height; i++ {
+		m2[i] = make([]float32, width)
+		for j := 0; j < width; j++ {
+			m2[i][j] = float32(i + j)
+		}
+	}
+
+	expectedRes := Mult(m1, Trans(m2))
+	result := MultTrans(m1, m2)
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(result[0]); j++ {
+			if result[i][j] != expectedRes[i][j] {
+				t.Error("Expected result on pos:", j, i, ":", expectedRes[i][j], "but obtained:", result[i][j])
+			}
+		}
+	}
+}
+
+func TestMatrixBigSumAll(t *testing.T) {
+	height := 2500
+	width := 3
+	m1 := make([][]float32, height)
+	for i := 0; i < height; i++ {
+		m1[i] = make([]float32, width)
+		for j := 0; j < width; j++ {
+			m1[i][j] = float32(i + j)
+		}
+	}
+
+	cudaRes := GetCudaMatrix(m1).SumAll()
+	expected := SumAll(m1)
+
+	if cudaRes != expected {
+		t.Error("Expected result for SumAll:", expected, "obtained:", cudaRes)
+	}
+}
+
+func TestCudaTrans(t *testing.T) {
+	m1 := GetCudaMatrix([][]float32{
+		[]float32{1, 5, 5, 6},
+		[]float32{1, 9, 8, 3},
+		[]float32{-2, 3.5, 2, 4},
+	})
+
+	result := m1.Trans().GetMatrixFromCuda()
+
+	expectedRes := [][]float32{
+		[]float32{1, 1, -2},
+		[]float32{5, 9, 3.5},
+		[]float32{5, 8, 2},
+		[]float32{6, 3, 4},
+	}
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(result[0]); j++ {
+			if result[i][j] != expectedRes[i][j] {
+				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+			}
+		}
+	}
+}
+
 func TestCudaAddBias(t *testing.T) {
 	m1 := GetCudaMatrix([][]float32{
 		[]float32{1, 5},
@@ -239,38 +315,6 @@ func TestMatrixSum(t *testing.T) {
 		for j := 0; j < len(result); j++ {
 			if result[i][j] != expectedRes[i][j] {
 				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
-			}
-		}
-	}
-}
-
-func TestMultTrans(t *testing.T) {
-	height := 50
-	width := 2
-	m1 := make([][]float32, height)
-	for i := 0; i < height; i++ {
-		m1[i] = make([]float32, width)
-		for j := 0; j < width; j++ {
-			m1[i][j] = float32(i + j)
-		}
-	}
-	height = 25
-	width = 2
-	m2 := make([][]float32, height)
-	for i := 0; i < height; i++ {
-		m2[i] = make([]float32, width)
-		for j := 0; j < width; j++ {
-			m2[i][j] = float32(i + j)
-		}
-	}
-
-	expectedRes := Mult(m1, Trans(m2))
-	result := MultTrans(m1, m2)
-
-	for i := 0; i < len(result); i++ {
-		for j := 0; j < len(result[0]); j++ {
-			if result[i][j] != expectedRes[i][j] {
-				t.Error("Expected result on pos:", j, i, ":", expectedRes[i][j], "but obtained:", result[i][j])
 			}
 		}
 	}

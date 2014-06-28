@@ -1,9 +1,9 @@
 /***************************************************
- * Module for matrix substraction
+ * Module that adds a new row at the top of the matrix with all ones
  * Author: Alonso Vidales <alonso.vidales@tras2.es>
  *
- * To be compiled with nvcc -ptx matrix_sub.cu
- * Debug: nvcc -arch=sm_20 -ptx matrix_sub.cu
+ * To be compiled with nvcc -ptx matrix_add_bias_top.cu
+ * Debug: nvcc -arch=sm_20 -ptx matrix_add_bias_top.cu
  *
  **************************************************/
 
@@ -14,15 +14,18 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixSub(float* C, float* A, float* B, int width, int resW, int resH, int resultSize)
+__global__ void matrixAddBiasTop(float* C, float* A, int width, int resW, int resH, int resultSize)
 {
 	int x = threadIdx.x + (blockIdx.x * resW);
 	int y = threadIdx.y + (blockIdx.y * resH);
 	int resultPos = y * width + x;
 
 	if (resultPos < resultSize && x < width) {
-		C[resultPos] = A[resultPos] - B[resultPos];
-		//printf("Block %d - %d, thread %d - %d Val: %f\n", x, y, threadIdx.x, threadIdx.y, C[resultPos]);
+		if (y == 0) {
+			C[resultPos] = 1;
+		} else {
+			C[resultPos] = A[resultPos - width];
+		}
 	}
 }
 

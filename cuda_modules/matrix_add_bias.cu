@@ -14,23 +14,19 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixAddBias(float* C, float* A, int wA, int hA, int width, int finalSize, int matrixSplits)
+__global__ void matrixAddBias(float* C, float* A, int width, int resW, int resH, int resultSize)
 {
-	for (int bx = 0; bx < matrixSplits; bx++) {
-		for (int by = 0; by < matrixSplits; by++) {
-			int x = threadIdx.x + (bx * wA);
-			int y = threadIdx.y + (by * hA);
-			int resultPos = y * width + x;
+	int x = threadIdx.x + (blockIdx.x * resW);
+	int y = threadIdx.y + (blockIdx.y * resH);
+	int resultPos = y * width + x;
 
-			if (resultPos < finalSize && x <  width) {
-				if (x == 0) {
-					C[resultPos] = 1;
-					//printf("Block %d - %d, thread %d - %d Val: %f Pos: %d Row: ONE\n", x, y, threadIdx.x, threadIdx.y, C[resultPos], resultPos);
-				} else {
-					C[resultPos] = A[resultPos - (resultPos / width + 1)];
-					//printf("Block %d - %d, thread %d - %d Val: %f Pos: %d Row: %d\n", x, y, threadIdx.x, threadIdx.y, C[resultPos], resultPos, resultPos - (resultPos / width + 1));
-				}
-			}
+	if (resultPos < resultSize && x <  width) {
+		if (x == 0) {
+			C[resultPos] = 1;
+			//printf("Block %d - %d, thread %d - %d Val: %f Pos: %d Row: ONE\n", x, y, threadIdx.x, threadIdx.y, C[resultPos], resultPos);
+		} else {
+			C[resultPos] = A[resultPos - (resultPos / width + 1)];
+			//printf("Block %d - %d, thread %d - %d Val: %f Pos: %d Row: %d\n", x, y, threadIdx.x, threadIdx.y, C[resultPos], resultPos, resultPos - (resultPos / width + 1));
 		}
 	}
 }

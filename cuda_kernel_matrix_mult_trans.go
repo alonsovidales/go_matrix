@@ -20,97 +20,71 @@ const KER_MATRIX_MULT_TRANS = `
 	.param .u32 matrixMulTrans_param_4,
 	.param .u32 matrixMulTrans_param_5,
 	.param .u32 matrixMulTrans_param_6,
-	.param .u32 matrixMulTrans_param_7,
-	.param .u32 matrixMulTrans_param_8
+	.param .u32 matrixMulTrans_param_7
 )
 {
-	.reg .pred 	%p<9>;
-	.reg .s32 	%r<31>;
+	.reg .pred 	%p<6>;
+	.reg .s32 	%r<21>;
 	.reg .f32 	%f<9>;
 	.reg .s64 	%rd<19>;
 
 
-	ld.param.u64 	%rd8, [matrixMulTrans_param_0];
-	ld.param.u64 	%rd9, [matrixMulTrans_param_1];
-	ld.param.u64 	%rd10, [matrixMulTrans_param_2];
-	ld.param.u32 	%r12, [matrixMulTrans_param_3];
-	ld.param.u32 	%r13, [matrixMulTrans_param_4];
-	ld.param.u32 	%r14, [matrixMulTrans_param_5];
-	ld.param.u32 	%r15, [matrixMulTrans_param_6];
-	ld.param.u32 	%r16, [matrixMulTrans_param_7];
-	ld.param.u32 	%r17, [matrixMulTrans_param_8];
-	setp.lt.s32	%p1, %r17, 1;
-	@%p1 bra 	BB0_10;
+	ld.param.u64 	%rd7, [matrixMulTrans_param_0];
+	ld.param.u64 	%rd8, [matrixMulTrans_param_1];
+	ld.param.u64 	%rd9, [matrixMulTrans_param_2];
+	ld.param.u32 	%r8, [matrixMulTrans_param_3];
+	ld.param.u32 	%r9, [matrixMulTrans_param_4];
+	ld.param.u32 	%r10, [matrixMulTrans_param_5];
+	ld.param.u32 	%r11, [matrixMulTrans_param_6];
+	ld.param.u32 	%r12, [matrixMulTrans_param_7];
+	mov.u32 	%r1, %ctaid.x;
+	mov.u32 	%r2, %tid.x;
+	mad.lo.s32 	%r13, %r1, %r9, %r2;
+	mov.u32 	%r3, %ctaid.y;
+	mov.u32 	%r4, %tid.y;
+	mad.lo.s32 	%r14, %r3, %r10, %r4;
+	mad.lo.s32 	%r5, %r14, %r11, %r13;
+	setp.lt.s32	%p1, %r5, %r12;
+	setp.lt.s32	%p2, %r13, %r11;
+	and.pred  	%p3, %p1, %p2;
+	@!%p3 bra 	BB0_6;
+	bra.uni 	BB0_1;
 
-	cvta.to.global.u64 	%rd1, %rd9;
-	mov.u32 	%r1, %tid.y;
-	mul.lo.s32 	%r2, %r1, %r12;
-	mov.u32 	%r18, 0;
-	cvta.to.global.u64 	%rd11, %rd10;
-	cvta.to.global.u64 	%rd14, %rd8;
-	mov.u32 	%r29, %r18;
+BB0_1:
+	setp.gt.s32	%p4, %r8, 0;
+	@%p4 bra 	BB0_3;
 
-BB0_2:
-	mul.lo.s32 	%r20, %r14, %r12;
-	mul.lo.s32 	%r21, %r20, %r29;
-	mov.u32 	%r22, %tid.x;
-	mad.lo.s32 	%r23, %r22, %r12, %r21;
-	mul.wide.s32 	%rd12, %r23, 4;
-	add.s64 	%rd2, %rd11, %rd12;
-	mad.lo.s32 	%r4, %r29, %r14, %r22;
-	mov.u32 	%r28, %r18;
+	mov.f32 	%f8, 0f00000000;
+	bra.uni 	BB0_5;
 
 BB0_3:
-	mov.u32 	%r5, %r28;
-	mul.lo.s32 	%r24, %r15, %r12;
-	mad.lo.s32 	%r6, %r24, %r5, %r2;
-	mad.lo.s32 	%r25, %r5, %r15, %r1;
-	mad.lo.s32 	%r7, %r25, %r13, %r4;
-	setp.lt.s32	%p2, %r7, %r16;
-	setp.lt.s32	%p3, %r4, %r13;
-	and.pred  	%p4, %p2, %p3;
-	@!%p4 bra 	BB0_8;
-	bra.uni 	BB0_4;
+	cvta.to.global.u64 	%rd10, %rd9;
+	cvta.to.global.u64 	%rd11, %rd8;
+	mul.lo.s32 	%r17, %r8, %r14;
+	mul.wide.s32 	%rd12, %r17, 4;
+	add.s64 	%rd18, %rd11, %rd12;
+	mul.lo.s32 	%r19, %r8, %r13;
+	mul.wide.s32 	%rd13, %r19, 4;
+	add.s64 	%rd17, %rd10, %rd13;
+	mov.f32 	%f8, 0f00000000;
+	mov.u32 	%r20, 0;
 
 BB0_4:
-	mul.wide.s32 	%rd13, %r6, 4;
-	add.s64 	%rd18, %rd1, %rd13;
-	mov.f32 	%f8, 0f00000000;
-	setp.gt.s32	%p5, %r12, 0;
-	@%p5 bra 	BB0_5;
-	bra.uni 	BB0_7;
-
-BB0_5:
-	mov.u32 	%r30, 0;
-	mov.u64 	%rd17, %rd2;
-
-BB0_6:
-	mov.u64 	%rd4, %rd17;
-	ld.global.f32 	%f6, [%rd4];
+	ld.global.f32 	%f6, [%rd17];
 	ld.global.f32 	%f7, [%rd18];
 	fma.rn.f32 	%f8, %f7, %f6, %f8;
 	add.s64 	%rd18, %rd18, 4;
-	add.s64 	%rd7, %rd4, 4;
-	add.s32 	%r30, %r30, 1;
-	setp.lt.s32	%p6, %r30, %r12;
-	mov.u64 	%rd17, %rd7;
-	@%p6 bra 	BB0_6;
+	add.s64 	%rd17, %rd17, 4;
+	add.s32 	%r20, %r20, 1;
+	setp.lt.s32	%p5, %r20, %r8;
+	@%p5 bra 	BB0_4;
 
-BB0_7:
-	mul.wide.s32 	%rd15, %r7, 4;
+BB0_5:
+	cvta.to.global.u64 	%rd14, %rd7;
+	mul.wide.s32 	%rd15, %r5, 4;
 	add.s64 	%rd16, %rd14, %rd15;
 	st.global.f32 	[%rd16], %f8;
 
-BB0_8:
-	add.s32 	%r10, %r5, 1;
-	setp.lt.s32	%p7, %r10, %r17;
-	mov.u32 	%r28, %r10;
-	@%p7 bra 	BB0_3;
-
-	add.s32 	%r29, %r29, 1;
-	setp.lt.s32	%p8, %r29, %r17;
-	@%p8 bra 	BB0_2;
-
-BB0_10:
+BB0_6:
 	ret;
 }`
