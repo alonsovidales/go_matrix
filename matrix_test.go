@@ -80,6 +80,30 @@ func TestCudaTrans(t *testing.T) {
 	}
 }
 
+func TestCudaSetBiasToZero(t *testing.T) {
+	m1 := GetCudaMatrix([][]float64{
+		[]float64{1, 5},
+		[]float64{1, 9},
+		[]float64{-2, 3.5},
+	})
+
+	result := m1.SetBiasToZero().GetMatrixFromCuda()
+
+	expectedRes := [][]float64{
+		[]float64{0, 5},
+		[]float64{0, 9},
+		[]float64{0, 3.5},
+	}
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(result[0]); j++ {
+			if result[i][j] != expectedRes[i][j] {
+				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+			}
+		}
+	}
+}
+
 func TestCudaAddBias(t *testing.T) {
 	m1 := GetCudaMatrix([][]float64{
 		[]float64{1, 5},

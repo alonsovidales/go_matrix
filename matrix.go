@@ -1,4 +1,4 @@
-// Package mt
+// Packae mt
 // Linear algebra functions to work with matrix
 
 package mt
@@ -23,7 +23,7 @@ var userMem = map[string]map[cu.DevicePtr]bool{
 	currentBuff: make(map[cu.DevicePtr]bool),
 }
 
-var addBiasTopMod, multMod, subMod, addMod, multAllMod, negMatrixMod,
+var addBiasTopMod, multMod, subMod, addMod, multAllMod, negMatrixMod, setBiasToZeroMod,
 	multTransMod, multByMod, removeBiasTopMod, transMod, sigmoidMatrixMod,
 	logMatrixMod, oneMinusMod, addBiasMod, removeBias, powTwoMod, sigmoidGradMod,
 	sumAll cu.Function
@@ -80,6 +80,8 @@ func InitCuda() {
 			transMod = mod.GetFunction("matrixTrans")
 			mod = cu.ModuleLoad("/cuda_modules/matrix_sum_all.ptx")
 			sumAll = mod.GetFunction("matrixSumAll")
+			mod = cu.ModuleLoad("/cuda_modules/matrix_set_bias_to_zero.ptx")
+			setBiasToZeroMod = mod.GetFunction("matrixSetBiasToZero")
 		} else {
 			mod = cu.ModuleLoadData(KER_MATRIX_MULT)
 			multMod = mod.GetFunction("matrixMul")
@@ -117,6 +119,8 @@ func InitCuda() {
 			transMod = mod.GetFunction("matrixTrans")
 			mod = cu.ModuleLoadData(KER_MATRIX_SUM_ALL)
 			sumAll = mod.GetFunction("matrixSumAll")
+			mod = cu.ModuleLoadData(KER_MATRIX_SET_BIAS_TO_ZERO)
+			setBiasToZeroMod = mod.GetFunction("matrixSetBiasToZero")
 		}
 
 		cudaInitialized = true
@@ -614,6 +618,30 @@ func (m *CudaMatrix) SumAll() (float64) {
 	cu.CtxSynchronize()
 
 	return *(*float64)(sumP)
+}
+
+func (m *CudaMatrix) SetBiasToZero() (*CudaMatrix) {
+	InitCuda()
+	var gridsH, resH int
+
+	if m.h > maxNumThreads {
+		gridsH = int(math.Ceil(float64(m.h) / float64(maxNumThreads)))
+		resH = maxNumThreads
+	} else {
+		gridsH = 1
+		resH = m.h
+	}
+
+	args := []unsafe.Pointer{
+		unsafe.Pointer(&m.m),
+		unsafe.Pointer(&m.h),
+		unsafe.Pointer(&m.w),
+		unsafe.Pointer(&resH),
+	}
+
+	launchKernelSync(setBiasToZeroMod, 1, gridsH, 1, 1, resH, 1, 0, 0, args)
+
+	return m
 }
 
 func (m *CudaMatrix) applyFunc(function cu.Function) {
