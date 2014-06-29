@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixTrans(float* C, float* A, int resW, int resH, int width, int height, int finalSize)
+__global__ void matrixTrans(double* C, double* A, int resW, int resH, int width, int height, int finalSize)
 {
 	int x = threadIdx.x + (blockIdx.x * resW);
 	int y = threadIdx.y + (blockIdx.y * resH);

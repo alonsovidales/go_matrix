@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixOneMinus(float* A, int resW, int resH, int width, int finalSize)
+__global__ void matrixOneMinus(double* A, int resW, int resH, int width, int finalSize)
 {
 	int x = threadIdx.x + (blockIdx.x * resW);
 	int y = threadIdx.y + (blockIdx.y * resH);

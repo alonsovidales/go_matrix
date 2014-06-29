@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixRemoveBias(float* C, float* A, int width, int resW, int resH, int resultSize)
+__global__ void matrixRemoveBias(double* C, double* A, int width, int resW, int resH, int resultSize)
 {
 	int x = threadIdx.x + (blockIdx.x * resW);
 	int y = threadIdx.y + (blockIdx.y * resH);

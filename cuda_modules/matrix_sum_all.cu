@@ -14,9 +14,9 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixSumAll(float* A, int wA, int size, float* sum)
+__global__ void matrixSumAll(double* A, int wA, int size, double* sum)
 {
-	__shared__ float res[1024];
+	__shared__ double res[1024];
 	res[threadIdx.x] = 0;
 
 	for (int bx = 0; bx < wA; bx++) {

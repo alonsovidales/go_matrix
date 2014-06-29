@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixMultBy(float* A, float multBy, int width, int resW, int resH, int finalSize)
+__global__ void matrixMultBy(double* A, double multBy, int width, int resW, int resH, int finalSize)
 {
 	int x = threadIdx.x + (blockIdx.x * resW);
 	int y = threadIdx.y + (blockIdx.y * resH);

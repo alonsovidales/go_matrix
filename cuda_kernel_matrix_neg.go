@@ -22,8 +22,8 @@ const KER_MATRIX_NEG = `
 {
 	.reg .pred 	%p<4>;
 	.reg .s32 	%r<12>;
-	.reg .f32 	%f<3>;
 	.reg .s64 	%rd<5>;
+	.reg .f64 	%fd<3>;
 
 
 	ld.param.u64 	%rd1, [matrixNeg_param_0];
@@ -46,11 +46,11 @@ const KER_MATRIX_NEG = `
 
 BB0_1:
 	cvta.to.global.u64 	%rd2, %rd1;
-	mul.wide.s32 	%rd3, %r1, 4;
+	mul.wide.s32 	%rd3, %r1, 8;
 	add.s64 	%rd4, %rd2, %rd3;
-	ld.global.f32 	%f1, [%rd4];
-	neg.f32 	%f2, %f1;
-	st.global.f32 	[%rd4], %f2;
+	ld.global.f64 	%fd1, [%rd4];
+	neg.f64 	%fd2, %fd1;
+	st.global.f64 	[%rd4], %fd2;
 
 BB0_2:
 	ret;

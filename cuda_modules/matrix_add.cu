@@ -14,7 +14,7 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixAdd(float* C, float* A, float* B, int width, int resW, int resH, int resultSize)
+__global__ void matrixAdd(double* C, double* A, double* B, int width, int resW, int resH, int resultSize)
 {
 	int x = threadIdx.x + (blockIdx.x * resW);
 	int y = threadIdx.y + (blockIdx.y * resH);

@@ -22,7 +22,7 @@ const KER_MATRIX_LOG = `
 {
 	.reg .pred 	%p<12>;
 	.reg .s32 	%r<35>;
-	.reg .f32 	%f<7>;
+	.reg .f32 	%f<5>;
 	.reg .s64 	%rd<5>;
 	.reg .f64 	%fd<56>;
 
@@ -47,16 +47,15 @@ const KER_MATRIX_LOG = `
 
 BB0_1:
 	cvta.to.global.u64 	%rd3, %rd2;
-	mul.wide.s32 	%rd4, %r1, 4;
+	mul.wide.s32 	%rd4, %r1, 8;
 	add.s64 	%rd1, %rd3, %rd4;
-	ld.global.f32 	%f1, [%rd1];
-	cvt.f64.f32	%fd1, %f1;
+	ld.global.f64 	%fd1, [%rd1];
 	{
 	.reg .b32 %temp; 
 	mov.b64 	{%temp, %r31}, %fd1;
 	}
-	setp.gt.f32	%p4, %f1, 0f00000000;
-	setp.lt.f32	%p5, %f1, 0f7F800000;
+	setp.gt.f64	%p4, %fd1, 0d0000000000000000;
+	setp.lt.f64	%p5, %fd1, 0d7FF0000000000000;
 	and.pred  	%p6, %p4, %p5;
 	@%p6 bra 	BB0_7;
 
@@ -64,14 +63,14 @@ BB0_1:
 	setp.gtu.f64	%p7, %fd9, 0d7FF0000000000000;
 	@%p7 bra 	BB0_6;
 
-	setp.neu.f32	%p8, %f1, 0f00000000;
+	setp.neu.f64	%p8, %fd1, 0d0000000000000000;
 	@%p8 bra 	BB0_5;
 
 	mov.f64 	%fd55, 0dFFF0000000000000;
 	bra.uni 	BB0_13;
 
 BB0_5:
-	setp.eq.f32	%p9, %f1, 0f7F800000;
+	setp.eq.f64	%p9, %fd1, 0d7FF0000000000000;
 	selp.f64	%fd55, %fd1, 0dFFF8000000000000, %p9;
 	bra.uni 	BB0_13;
 
@@ -127,13 +126,13 @@ BB0_12:
 	add.f64 	%fd12, %fd54, 0d3FF0000000000000;
 	mov.f64 	%fd14, 0d3FF0000000000000;
 	// inline asm
-	cvt.rn.f32.f64     %f2,%fd12;
+	cvt.rn.f32.f64     %f1,%fd12;
 	// inline asm
 	// inline asm
-	rcp.approx.ftz.f32 %f3,%f2;
+	rcp.approx.ftz.f32 %f2,%f1;
 	// inline asm
 	// inline asm
-	cvt.f64.f32        %fd13,%f3;
+	cvt.f64.f32        %fd13,%f2;
 	// inline asm
 	neg.f64 	%fd15, %fd12;
 	fma.rn.f64 	%fd16, %fd15, %fd13, %fd14;
@@ -178,8 +177,7 @@ BB0_12:
 	add.f64 	%fd55, %fd47, %fd53;
 
 BB0_13:
-	cvt.rn.f32.f64	%f6, %fd55;
-	st.global.f32 	[%rd1], %f6;
+	st.global.f64 	[%rd1], %fd55;
 
 BB0_14:
 	ret;

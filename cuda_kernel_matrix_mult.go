@@ -25,8 +25,8 @@ const KER_MATRIX_MULT = `
 {
 	.reg .pred 	%p<6>;
 	.reg .s32 	%r<20>;
-	.reg .f32 	%f<9>;
 	.reg .s64 	%rd<13>;
+	.reg .f64 	%fd<9>;
 
 
 	ld.param.u64 	%rd3, [matrixMul_param_0];
@@ -54,35 +54,35 @@ BB0_1:
 	setp.gt.s32	%p4, %r7, 0;
 	@%p4 bra 	BB0_3;
 
-	mov.f32 	%f8, 0f00000000;
+	mov.f64 	%fd8, 0d0000000000000000;
 	bra.uni 	BB0_5;
 
 BB0_3:
 	cvta.to.global.u64 	%rd1, %rd5;
 	cvta.to.global.u64 	%rd2, %rd4;
 	mul.lo.s32 	%r4, %r2, %r7;
-	mov.f32 	%f8, 0f00000000;
+	mov.f64 	%fd8, 0d0000000000000000;
 	mov.u32 	%r19, 0;
 
 BB0_4:
 	add.s32 	%r17, %r19, %r4;
-	mul.wide.s32 	%rd6, %r17, 4;
+	mul.wide.s32 	%rd6, %r17, 8;
 	add.s64 	%rd7, %rd2, %rd6;
 	mad.lo.s32 	%r18, %r19, %r8, %r1;
-	mul.wide.s32 	%rd8, %r18, 4;
+	mul.wide.s32 	%rd8, %r18, 8;
 	add.s64 	%rd9, %rd1, %rd8;
-	ld.global.f32 	%f6, [%rd9];
-	ld.global.f32 	%f7, [%rd7];
-	fma.rn.f32 	%f8, %f7, %f6, %f8;
+	ld.global.f64 	%fd6, [%rd9];
+	ld.global.f64 	%fd7, [%rd7];
+	fma.rn.f64 	%fd8, %fd7, %fd6, %fd8;
 	add.s32 	%r19, %r19, 1;
 	setp.lt.s32	%p5, %r19, %r7;
 	@%p5 bra 	BB0_4;
 
 BB0_5:
 	cvta.to.global.u64 	%rd10, %rd3;
-	mul.wide.s32 	%rd11, %r3, 4;
+	mul.wide.s32 	%rd11, %r3, 8;
 	add.s64 	%rd12, %rd10, %rd11;
-	st.global.f32 	[%rd12], %f8;
+	st.global.f64 	[%rd12], %fd8;
 
 BB0_6:
 	ret;

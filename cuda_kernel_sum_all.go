@@ -11,7 +11,7 @@ const KER_MATRIX_SUM_ALL = `
 .target sm_20
 .address_size 64
 
-// matrixSumAll$__cuda_local_var_34142_32_non_const_res has been demoted
+// matrixSumAll$__cuda_local_var_34142_33_non_const_res has been demoted
 
 .visible .entry matrixSumAll(
 	.param .u64 matrixSumAll_param_0,
@@ -21,45 +21,45 @@ const KER_MATRIX_SUM_ALL = `
 )
 {
 	.reg .pred 	%p<6>;
-	.reg .s32 	%r<17>;
-	.reg .f32 	%f<32>;
-	.reg .s64 	%rd<17>;
+	.reg .s32 	%r<16>;
+	.reg .s64 	%rd<18>;
+	.reg .f64 	%fd<32>;
 	// demoted variable
-	.shared .align 4 .b8 matrixSumAll$__cuda_local_var_34142_32_non_const_res[4096];
+	.shared .align 8 .b8 matrixSumAll$__cuda_local_var_34142_33_non_const_res[8192];
 
 	ld.param.u64 	%rd8, [matrixSumAll_param_0];
 	ld.param.u32 	%r9, [matrixSumAll_param_1];
 	ld.param.u32 	%r10, [matrixSumAll_param_2];
 	ld.param.u64 	%rd9, [matrixSumAll_param_3];
 	mov.u32 	%r1, %tid.x;
-	mul.wide.u32 	%rd10, %r1, 4;
-	mov.u64 	%rd16, matrixSumAll$__cuda_local_var_34142_32_non_const_res;
-	add.s64 	%rd1, %rd16, %rd10;
-	mov.u32 	%r16, 0;
-	st.shared.u32 	[%rd1], %r16;
+	mul.wide.u32 	%rd10, %r1, 8;
+	mov.u64 	%rd17, matrixSumAll$__cuda_local_var_34142_33_non_const_res;
+	add.s64 	%rd1, %rd17, %rd10;
+	mov.u64 	%rd12, 0;
+	st.shared.u64 	[%rd1], %rd12;
 	setp.lt.s32	%p1, %r9, 1;
 	@%p1 bra 	BB0_5;
 
-	cvta.to.global.u64 	%rd12, %rd8;
-	mul.lo.s32 	%r14, %r1, %r9;
-	mul.wide.s32 	%rd13, %r14, 4;
-	add.s64 	%rd15, %rd12, %rd13;
-	mov.f32 	%f30, 0f00000000;
-	mov.u32 	%r15, 0;
+	cvta.to.global.u64 	%rd13, %rd8;
+	mul.lo.s32 	%r13, %r1, %r9;
+	mul.wide.s32 	%rd14, %r13, 8;
+	add.s64 	%rd16, %rd13, %rd14;
+	mov.f64 	%fd30, 0d0000000000000000;
+	mov.u32 	%r14, 0;
 
 BB0_2:
-	setp.ge.s32	%p2, %r14, %r10;
+	setp.ge.s32	%p2, %r13, %r10;
 	@%p2 bra 	BB0_4;
 
-	ld.global.f32 	%f8, [%rd15];
-	add.f32 	%f30, %f30, %f8;
-	st.shared.f32 	[%rd1], %f30;
+	ld.global.f64 	%fd8, [%rd16];
+	add.f64 	%fd30, %fd30, %fd8;
+	st.shared.f64 	[%rd1], %fd30;
 
 BB0_4:
-	add.s64 	%rd15, %rd15, 4;
+	add.s64 	%rd16, %rd16, 8;
+	add.s32 	%r13, %r13, 1;
 	add.s32 	%r14, %r14, 1;
-	add.s32 	%r15, %r15, 1;
-	setp.lt.s32	%p3, %r15, %r9;
+	setp.lt.s32	%p3, %r14, %r9;
 	@%p3 bra 	BB0_2;
 
 BB0_5:
@@ -68,48 +68,50 @@ BB0_5:
 	@%p4 bra 	BB0_9;
 
 	cvta.to.global.u64 	%rd5, %rd9;
-	ld.shared.f32 	%f31, [matrixSumAll$__cuda_local_var_34142_32_non_const_res];
+	ld.shared.f64 	%fd31, [matrixSumAll$__cuda_local_var_34142_33_non_const_res];
+	mov.u32 	%r15, 0;
 
 BB0_7:
-	ld.shared.f32 	%f9, [%rd16+4];
-	add.f32 	%f10, %f31, %f9;
-	ld.shared.f32 	%f11, [%rd16+8];
-	ld.shared.f32 	%f12, [%rd16+12];
-	ld.shared.f32 	%f13, [%rd16+16];
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f10;
-	add.f32 	%f14, %f10, %f11;
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f14;
-	add.f32 	%f15, %f14, %f12;
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f15;
-	add.f32 	%f16, %f15, %f13;
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f16;
-	ld.shared.f32 	%f17, [%rd16+20];
-	add.f32 	%f18, %f16, %f17;
-	ld.shared.f32 	%f19, [%rd16+24];
-	ld.shared.f32 	%f20, [%rd16+28];
-	ld.shared.f32 	%f21, [%rd16+32];
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f18;
-	add.f32 	%f22, %f18, %f19;
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f22;
-	add.f32 	%f23, %f22, %f20;
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f23;
-	add.f32 	%f24, %f23, %f21;
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f24;
-	ld.shared.f32 	%f25, [%rd16+36];
-	add.f32 	%f26, %f24, %f25;
-	ld.shared.f32 	%f27, [%rd16+40];
-	ld.shared.f32 	%f28, [%rd16+44];
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f26;
-	add.f32 	%f29, %f26, %f27;
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f29;
-	add.s64 	%rd16, %rd16, 44;
-	add.f32 	%f31, %f29, %f28;
-	st.shared.f32 	[matrixSumAll$__cuda_local_var_34142_32_non_const_res], %f31;
-	add.s32 	%r16, %r16, 11;
-	setp.ne.s32	%p5, %r16, 1023;
+	mov.u64 	%rd6, %rd17;
+	ld.shared.f64 	%fd9, [%rd6+8];
+	add.f64 	%fd10, %fd31, %fd9;
+	ld.shared.f64 	%fd11, [%rd6+16];
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd10;
+	add.f64 	%fd12, %fd10, %fd11;
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd12;
+	ld.shared.f64 	%fd13, [%rd6+24];
+	add.f64 	%fd14, %fd12, %fd13;
+	ld.shared.f64 	%fd15, [%rd6+32];
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd14;
+	add.f64 	%fd16, %fd14, %fd15;
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd16;
+	ld.shared.f64 	%fd17, [%rd6+40];
+	add.f64 	%fd18, %fd16, %fd17;
+	ld.shared.f64 	%fd19, [%rd6+48];
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd18;
+	add.f64 	%fd20, %fd18, %fd19;
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd20;
+	ld.shared.f64 	%fd21, [%rd6+56];
+	add.f64 	%fd22, %fd20, %fd21;
+	ld.shared.f64 	%fd23, [%rd6+64];
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd22;
+	add.f64 	%fd24, %fd22, %fd23;
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd24;
+	ld.shared.f64 	%fd25, [%rd6+72];
+	add.f64 	%fd26, %fd24, %fd25;
+	ld.shared.f64 	%fd27, [%rd6+80];
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd26;
+	add.f64 	%fd28, %fd26, %fd27;
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd28;
+	add.s64 	%rd17, %rd6, 88;
+	ld.shared.f64 	%fd29, [%rd6+88];
+	add.f64 	%fd31, %fd28, %fd29;
+	st.shared.f64 	[matrixSumAll$__cuda_local_var_34142_33_non_const_res], %fd31;
+	add.s32 	%r15, %r15, 11;
+	setp.ne.s32	%p5, %r15, 1023;
 	@%p5 bra 	BB0_7;
 
-	st.global.f32 	[%rd5], %f31;
+	st.global.f64 	[%rd5], %fd31;
 
 BB0_9:
 	ret;

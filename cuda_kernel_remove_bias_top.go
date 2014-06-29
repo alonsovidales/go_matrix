@@ -23,8 +23,8 @@ const KER_MATRIX_REMOVE_BIAS_TOP = `
 {
 	.reg .pred 	%p<4>;
 	.reg .s32 	%r<13>;
-	.reg .f32 	%f<2>;
 	.reg .s64 	%rd<9>;
+	.reg .f64 	%fd<2>;
 
 
 	ld.param.u64 	%rd1, [matrixRemoveBiasTop_param_0];
@@ -50,12 +50,12 @@ BB0_1:
 	cvta.to.global.u64 	%rd3, %rd1;
 	cvta.to.global.u64 	%rd4, %rd2;
 	add.s32 	%r12, %r1, %r2;
-	mul.wide.s32 	%rd5, %r12, 4;
+	mul.wide.s32 	%rd5, %r12, 8;
 	add.s64 	%rd6, %rd4, %rd5;
-	mul.wide.s32 	%rd7, %r1, 4;
+	mul.wide.s32 	%rd7, %r1, 8;
 	add.s64 	%rd8, %rd3, %rd7;
-	ld.global.f32 	%f1, [%rd6];
-	st.global.f32 	[%rd8], %f1;
+	ld.global.f64 	%fd1, [%rd6];
+	st.global.f64 	[%rd8], %fd1;
 
 BB0_2:
 	ret;

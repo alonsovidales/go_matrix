@@ -15,7 +15,7 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixSigmoid(float* A, int resW, int resH, int width, int finalSize)
+__global__ void matrixSigmoid(double* A, int resW, int resH, int width, int finalSize)
 {
 	int x = threadIdx.x + (blockIdx.x * resW);
 	int y = threadIdx.y + (blockIdx.y * resH);

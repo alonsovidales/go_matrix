@@ -24,8 +24,8 @@ const KER_MATRIX_ADD = `
 {
 	.reg .pred 	%p<4>;
 	.reg .s32 	%r<12>;
-	.reg .f32 	%f<4>;
 	.reg .s64 	%rd<11>;
+	.reg .f64 	%fd<4>;
 
 
 	ld.param.u64 	%rd1, [matrixAdd_param_0];
@@ -52,14 +52,14 @@ BB0_1:
 	cvta.to.global.u64 	%rd4, %rd1;
 	cvta.to.global.u64 	%rd5, %rd3;
 	cvta.to.global.u64 	%rd6, %rd2;
-	mul.wide.s32 	%rd7, %r1, 4;
+	mul.wide.s32 	%rd7, %r1, 8;
 	add.s64 	%rd8, %rd6, %rd7;
 	add.s64 	%rd9, %rd5, %rd7;
-	ld.global.f32 	%f1, [%rd9];
-	ld.global.f32 	%f2, [%rd8];
-	add.f32 	%f3, %f2, %f1;
+	ld.global.f64 	%fd1, [%rd9];
+	ld.global.f64 	%fd2, [%rd8];
+	add.f64 	%fd3, %fd2, %fd1;
 	add.s64 	%rd10, %rd4, %rd7;
-	st.global.f32 	[%rd10], %f3;
+	st.global.f64 	[%rd10], %fd3;
 
 BB0_2:
 	ret;

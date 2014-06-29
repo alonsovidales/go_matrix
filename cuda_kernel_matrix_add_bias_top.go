@@ -22,9 +22,9 @@ const KER_MATRIX_ADD_BIAS_TOP = `
 )
 {
 	.reg .pred 	%p<5>;
-	.reg .s32 	%r<14>;
-	.reg .f32 	%f<2>;
-	.reg .s64 	%rd<9>;
+	.reg .s32 	%r<13>;
+	.reg .s64 	%rd<10>;
+	.reg .f64 	%fd<2>;
 
 
 	ld.param.u64 	%rd2, [matrixAddBiasTop_param_0];
@@ -48,22 +48,22 @@ const KER_MATRIX_ADD_BIAS_TOP = `
 
 BB0_1:
 	cvta.to.global.u64 	%rd4, %rd2;
-	setp.eq.s32	%p4, %r1, 0;
-	mul.wide.s32 	%rd5, %r2, 4;
+	mul.wide.s32 	%rd5, %r2, 8;
 	add.s64 	%rd1, %rd4, %rd5;
+	setp.eq.s32	%p4, %r1, 0;
 	@%p4 bra 	BB0_3;
 
 	cvta.to.global.u64 	%rd6, %rd3;
 	sub.s32 	%r12, %r2, %r3;
-	mul.wide.s32 	%rd7, %r12, 4;
+	mul.wide.s32 	%rd7, %r12, 8;
 	add.s64 	%rd8, %rd6, %rd7;
-	ld.global.f32 	%f1, [%rd8];
-	st.global.f32 	[%rd1], %f1;
+	ld.global.f64 	%fd1, [%rd8];
+	st.global.f64 	[%rd1], %fd1;
 	bra.uni 	BB0_4;
 
 BB0_3:
-	mov.u32 	%r13, 1065353216;
-	st.global.u32 	[%rd1], %r13;
+	mov.u64 	%rd9, 4607182418800017408;
+	st.global.u64 	[%rd1], %rd9;
 
 BB0_4:
 	ret;

@@ -14,15 +14,15 @@ extern "C" {
 #endif
 
 // CUDA Kernel
-__global__ void matrixLog(float* A, int resW, int resH, int width, int finalSize)
+__global__ void matrixLog(double* A, int resW, int resH, int width, int finalSize)
 {
 	int x = threadIdx.x + (blockIdx.x * resW);
         int y = threadIdx.y + (blockIdx.y * resH);
         int resultPos = y * width + x;
 
 	if (resultPos < finalSize && x < width) {
-		A[resultPos] = (float)log((double)A[resultPos]);
-		//printf("Block %d - %d, thread %d - %d Val: %f %f %f\n", x, y, threadIdx.x, threadIdx.y, A[resultPos], log((double)A[resultPos]), (float)log((double)A[resultPos]));
+		A[resultPos] = (double)log((double)A[resultPos]);
+		//printf("Block %d - %d, thread %d - %d Val: %f %f %f\n", x, y, threadIdx.x, threadIdx.y, A[resultPos], log((double)A[resultPos]), (double)log((double)A[resultPos]));
 	}
 }
 

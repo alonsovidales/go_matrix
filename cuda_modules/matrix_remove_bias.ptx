@@ -20,8 +20,8 @@
 {
 	.reg .pred 	%p<4>;
 	.reg .s32 	%r<14>;
-	.reg .f32 	%f<2>;
 	.reg .s64 	%rd<9>;
+	.reg .f64 	%fd<2>;
 
 
 	ld.param.u64 	%rd1, [matrixRemoveBias_param_0];
@@ -48,12 +48,12 @@ BB0_1:
 	cvta.to.global.u64 	%rd4, %rd2;
 	div.s32 	%r12, %r1, %r2;
 	add.s32 	%r13, %r1, %r12;
-	mul.wide.s32 	%rd5, %r13, 4;
+	mul.wide.s32 	%rd5, %r13, 8;
 	add.s64 	%rd6, %rd4, %rd5;
-	mul.wide.s32 	%rd7, %r1, 4;
+	mul.wide.s32 	%rd7, %r1, 8;
 	add.s64 	%rd8, %rd3, %rd7;
-	ld.global.f32 	%f1, [%rd6+4];
-	st.global.f32 	[%rd8], %f1;
+	ld.global.f64 	%fd1, [%rd6+8];
+	st.global.f64 	[%rd8], %fd1;
 
 BB0_2:
 	ret;

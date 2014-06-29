@@ -13,7 +13,7 @@
 extern "C" {
 #endif
 	// CUDA Kernel
-	__global__ void matrixMul(float* C, float* A, float* B, int wA, int wB, int resW, int resH, int resultSize)
+	__global__ void matrixMul(double* C, double* A, double* B, int wA, int wB, int resW, int resH, int resultSize)
 	{
 		int x = threadIdx.x + (blockIdx.x * resW);
 		int y = threadIdx.y + (blockIdx.y * resH);
@@ -23,7 +23,7 @@ extern "C" {
 		if (resultPos < resultSize && x < wB) {
 			// value stores the element that is 
 			// computed by the thread
-			float value = 0;
+			double value = 0;
 			for (int i = 0; i < wA; ++i)
 			{
 				value += A[y * wA + i] * B[i * wB + x];
