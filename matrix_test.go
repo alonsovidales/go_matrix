@@ -1,8 +1,34 @@
 package mt
 
 import (
+	"fmt"
 	"testing"
 )
+
+func TestAddBiasTop(t *testing.T) {
+	m1 := GetCudaMatrix([][]float64{
+		[]float64{1, 5, 5, 6},
+		[]float64{1, 9, 8, 3},
+		[]float64{-2, 3.5, 2, 4},
+	})
+
+	result := m1.AddBiasTop().GetMatrixFromCuda()
+
+	expectedRes := [][]float64{
+		[]float64{1, 1, 1, 1},
+		[]float64{1, 5, 5, 6},
+		[]float64{1, 9, 8, 3},
+		[]float64{-2, 3.5, 2, 4},
+	}
+
+	for i := 0; i < len(result); i++ {
+		for j := 0; j < len(result[0]); j++ {
+			if result[i][j] != expectedRes[i][j] {
+				t.Error("Expected result on pos:", i, j, ":", expectedRes[i][j], "but obtained:", result[i][j])
+			}
+		}
+	}
+}
 
 func TestMultTrans(t *testing.T) {
 	height := 35

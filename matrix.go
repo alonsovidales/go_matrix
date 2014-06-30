@@ -151,9 +151,6 @@ func FreeMem() {
 		cu.MemFree(m)
 		delete(userMem[currentBuff], m)
 	}
-
-	//fmt.Println("Default:", len(userMem["default"]))
-	//fmt.Println("nncost:", len(userMem["nncost"]))
 }
 
 func (p *CudaMatrix) Free() {
