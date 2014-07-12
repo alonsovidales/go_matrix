@@ -180,7 +180,15 @@ func InitCudaMatrix(w int, h int) (p *CudaMatrix) {
 	return
 }
 
-func (m *CudaMatrix) CudaCopyTo(t *CudaMatrix) (*CudaMatrix) {
+func (m *CudaMatrix) H() (int) {
+	return m.h
+}
+
+func (m *CudaMatrix) W() (int) {
+	return m.w
+}
+
+func (m *CudaMatrix) CopyTo(t *CudaMatrix) (*CudaMatrix) {
 	size := int64(m.w * m.h) * cu.SIZEOF_FLOAT64
 	InitCuda()
 	if t.w == 0 && t.h == 0 {
@@ -193,7 +201,7 @@ func (m *CudaMatrix) CudaCopyTo(t *CudaMatrix) (*CudaMatrix) {
 	return t
 }
 
-func (m *CudaMatrix) CudaCopy() (r *CudaMatrix) {
+func (m *CudaMatrix) Copy() (r *CudaMatrix) {
 	size := int64(m.w * m.h) * cu.SIZEOF_FLOAT64
 
 	InitCuda()
@@ -203,6 +211,27 @@ func (m *CudaMatrix) CudaCopy() (r *CudaMatrix) {
 		h: m.h,
 	}
 	cu.MemcpyDtoD(r.m, m.m, size)
+
+	return
+}
+
+func MoveToCuda(m [][]float64, p *CudaMatrix) {
+	linealM := make([]float64, len(m) * len(m[0]))
+	for i := 0; i < len(m); i++ {
+		for j := 0; j < len(m[0]); j++ {
+			linealM[(i * p.w) + j] = m[i][j]
+		}
+	}
+	size := int64(len(linealM)) * cu.SIZEOF_FLOAT64
+
+	InitCuda()
+	if p.w == 0 && p.h == 0 {
+		size := int64(len(m[0]) * len(m)) * cu.SIZEOF_FLOAT64
+		p.m = CudaMemAlloc(size)
+		p.w = len(m[0])
+		p.h = len(m)
+	}
+	cu.MemcpyHtoD(p.m, unsafe.Pointer(&linealM[0]), size)
 
 	return
 }
