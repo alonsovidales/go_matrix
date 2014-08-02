@@ -8,7 +8,7 @@ const KER_MATRIX_REMOVE_BIAS_TOP = `
 //
 
 .version 4.0
-.target sm_20
+.target sm_30
 .address_size 64
 
 

@@ -8,7 +8,7 @@ const KER_MATRIX_SIGMOID_GRADIENT = `
 //
 
 .version 4.0
-.target sm_20
+.target sm_30
 .address_size 64
 
 .func  (.param .b64 func_retval0) __internal_accurate_pow

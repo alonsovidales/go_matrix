@@ -1,7 +1,7 @@
 package mt
 
 import (
-	"fmt"
+	//"fmt"
 	"testing"
 )
 

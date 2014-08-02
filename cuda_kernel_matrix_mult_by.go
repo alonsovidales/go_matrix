@@ -8,7 +8,7 @@ const KER_MATRIX_MULT_BY = `
 //
 
 .version 4.0
-.target sm_20
+.target sm_30
 .address_size 64
 
 

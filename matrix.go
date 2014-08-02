@@ -16,10 +16,10 @@ type CudaMatrix struct {
 }
 
 const DEBUG = false
-const CUDA_DEVICE = 0
+var cudaDevice = 0
 
 var currentBuff = "default"
-var userMem = map[string]map[cu.DevicePtr]bool{
+var usedMem = map[string]map[cu.DevicePtr]bool{
 	currentBuff: make(map[cu.DevicePtr]bool),
 }
 
@@ -37,10 +37,10 @@ func InitCuda() {
 		var mod cu.Module
 
 		cu.Init(0)
-		dev = cu.DeviceGet(CUDA_DEVICE)
+		dev = cu.DeviceGet(cudaDevice)
 		maxNumThreads = dev.Attribute(cu.MAX_THREADS_PER_BLOCK)
 
-		ctx = cu.CtxCreate(cu.CTX_SCHED_AUTO, CUDA_DEVICE)
+		ctx = cu.CtxCreate(cu.CTX_SCHED_AUTO, dev)
 		ctx.SetCurrent()
 
 		if DEBUG {
@@ -133,9 +133,15 @@ func InitCuda() {
 	}
 }
 
+func SetDevice(dev int) {
+	cudaDevice = dev
+}
+
 func StartBufferingMem(buff string) {
-	currentBuff = buff
-	userMem[buff] = make(map[cu.DevicePtr]bool)
+	if buff != "" {
+		currentBuff = buff
+		usedMem[buff] = make(map[cu.DevicePtr]bool)
+	}
 }
 
 func SetDefaultBuff() {
@@ -143,18 +149,29 @@ func SetDefaultBuff() {
 }
 
 func AddToBuff(ptr cu.DevicePtr) {
-	userMem[currentBuff][ptr] = true
+	usedMem[currentBuff][ptr] = true
+}
+
+func FreeAllMem() {
+	for _, buff := range(usedMem) {
+		for m, _ := range(buff) {
+			cu.MemFree(m)
+		}
+	}
+	usedMem = map[string]map[cu.DevicePtr]bool{
+		currentBuff: make(map[cu.DevicePtr]bool),
+	}
 }
 
 func FreeMem() {
-	for m, _ := range(userMem[currentBuff]) {
+	for m, _ := range(usedMem[currentBuff]) {
 		cu.MemFree(m)
-		delete(userMem[currentBuff], m)
+		delete(usedMem[currentBuff], m)
 	}
 }
 
 func (p *CudaMatrix) Free() {
-	delete(userMem[currentBuff], p.m)
+	delete(usedMem[currentBuff], p.m)
 	cu.MemFree(p.m)
 }
 
