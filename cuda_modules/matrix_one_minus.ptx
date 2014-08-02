@@ -47,7 +47,7 @@ BB0_1:
 	add.s64 	%rd4, %rd2, %rd3;
 	ld.global.f64 	%fd1, [%rd4];
 	mov.f64 	%fd2, 0d3FF0000000000000;
-	sub.f64 	%fd3, %fd2, %fd1;
+	sub.rn.f64 	%fd3, %fd2, %fd1;
 	st.global.f64 	[%rd4], %fd3;
 
 BB0_2:
