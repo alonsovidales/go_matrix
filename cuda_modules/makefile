@@ -1,6 +1,6 @@
 ll:
 	rm *.ptx
-	nvcc -arch=sm_30 -ptx -allow-expensive-optimizations -fmad=false -ftz=false -prec-div=true -prec-sqrt=true *.cu
+	nvcc -arch=sm_30 -ptx -Xptxas -allow-expensive-optimizations -fmad=false -ftz=false -prec-div=true -prec-sqrt=true *.cu
 
 	cp empty_files/* ../
 
