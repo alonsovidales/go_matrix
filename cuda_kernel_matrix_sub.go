@@ -57,10 +57,13 @@ BB0_1:
 	add.s64 	%rd9, %rd5, %rd7;
 	ld.global.f64 	%fd1, [%rd9];
 	ld.global.f64 	%fd2, [%rd8];
-	sub.rn.f64 	%fd3, %fd2, %fd1;
+	sub.f64 	%fd3, %fd2, %fd1;
 	add.s64 	%rd10, %rd4, %rd7;
 	st.global.f64 	[%rd10], %fd3;
 
 BB0_2:
 	ret;
-}`
+}
+
+
+`

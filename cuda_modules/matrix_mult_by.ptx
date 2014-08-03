@@ -48,7 +48,7 @@ BB0_1:
 	mul.wide.s32 	%rd3, %r1, 8;
 	add.s64 	%rd4, %rd2, %rd3;
 	ld.global.f64 	%fd2, [%rd4];
-	mul.rn.f64 	%fd3, %fd2, %fd1;
+	mul.f64 	%fd3, %fd2, %fd1;
 	st.global.f64 	[%rd4], %fd3;
 
 BB0_2:

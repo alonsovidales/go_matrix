@@ -26,7 +26,7 @@ const KER_MATRIX_MULT = `
 	.reg .pred 	%p<6>;
 	.reg .s32 	%r<20>;
 	.reg .s64 	%rd<13>;
-	.reg .f64 	%fd<10>;
+	.reg .f64 	%fd<9>;
 
 
 	ld.param.u64 	%rd3, [matrixMul_param_0];
@@ -54,14 +54,14 @@ BB0_1:
 	setp.gt.s32	%p4, %r7, 0;
 	@%p4 bra 	BB0_3;
 
-	mov.f64 	%fd9, 0d0000000000000000;
+	mov.f64 	%fd8, 0d0000000000000000;
 	bra.uni 	BB0_5;
 
 BB0_3:
 	cvta.to.global.u64 	%rd1, %rd5;
 	cvta.to.global.u64 	%rd2, %rd4;
 	mul.lo.s32 	%r4, %r2, %r7;
-	mov.f64 	%fd9, 0d0000000000000000;
+	mov.f64 	%fd8, 0d0000000000000000;
 	mov.u32 	%r19, 0;
 
 BB0_4:
@@ -73,8 +73,7 @@ BB0_4:
 	add.s64 	%rd9, %rd1, %rd8;
 	ld.global.f64 	%fd6, [%rd9];
 	ld.global.f64 	%fd7, [%rd7];
-	mul.rn.f64 	%fd8, %fd7, %fd6;
-	add.rn.f64 	%fd9, %fd9, %fd8;
+	fma.rn.f64 	%fd8, %fd7, %fd6, %fd8;
 	add.s32 	%r19, %r19, 1;
 	setp.lt.s32	%p5, %r19, %r7;
 	@%p5 bra 	BB0_4;
@@ -83,8 +82,11 @@ BB0_5:
 	cvta.to.global.u64 	%rd10, %rd3;
 	mul.wide.s32 	%rd11, %r3, 8;
 	add.s64 	%rd12, %rd10, %rd11;
-	st.global.f64 	[%rd12], %fd9;
+	st.global.f64 	[%rd12], %fd8;
 
 BB0_6:
 	ret;
-}`
+}
+
+
+`
