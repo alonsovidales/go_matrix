@@ -75,7 +75,7 @@ BB0_5:
 	bra.uni 	BB0_13;
 
 BB0_6:
-	add.f64 	%fd55, %fd1, %fd1;
+	add.rn.f64 	%fd55, %fd1, %fd1;
 	bra.uni 	BB0_13;
 
 BB0_7:
@@ -90,7 +90,7 @@ BB0_7:
 	bra.uni 	BB0_10;
 
 BB0_9:
-	mul.f64 	%fd11, %fd1, 0d4350000000000000;
+	mul.rn.f64 	%fd11, %fd1, 0d4350000000000000;
 	{
 	.reg .b32 %temp; 
 	mov.b64 	{%temp, %r31}, %fd11;
@@ -123,7 +123,7 @@ BB0_10:
 	add.s32 	%r34, %r34, 1;
 
 BB0_12:
-	add.f64 	%fd12, %fd54, 0d3FF0000000000000;
+	add.rn.f64 	%fd12, %fd54, 0d3FF0000000000000;
 	mov.f64 	%fd14, 0d3FF0000000000000;
 	// inline asm
 	cvt.rn.f32.f64     %f1,%fd12;
@@ -138,10 +138,10 @@ BB0_12:
 	fma.rn.f64 	%fd16, %fd15, %fd13, %fd14;
 	fma.rn.f64 	%fd17, %fd16, %fd16, %fd16;
 	fma.rn.f64 	%fd18, %fd17, %fd13, %fd13;
-	add.f64 	%fd19, %fd54, 0dBFF0000000000000;
-	mul.f64 	%fd20, %fd19, %fd18;
-	fma.rn.f64 	%fd21, %fd19, %fd18, %fd20;
-	mul.f64 	%fd22, %fd21, %fd21;
+	add.rn.f64 	%fd19, %fd54, 0dBFF0000000000000;
+	mul.rn.f64 	%fd20, %fd19, %fd18;
+	add.rn.f64 	%fd21, %fd20, %fd20;
+	mul.rn.f64 	%fd22, %fd21, %fd21;
 	mov.f64 	%fd23, 0d3ED0EE258B7A8B04;
 	mov.f64 	%fd24, 0d3EB1380B3AE80F1E;
 	fma.rn.f64 	%fd25, %fd24, %fd22, %fd23;
@@ -157,12 +157,12 @@ BB0_12:
 	fma.rn.f64 	%fd35, %fd33, %fd22, %fd34;
 	mov.f64 	%fd36, 0d3FB5555555555554;
 	fma.rn.f64 	%fd37, %fd35, %fd22, %fd36;
-	sub.f64 	%fd38, %fd19, %fd21;
-	add.f64 	%fd39, %fd38, %fd38;
+	sub.rn.f64 	%fd38, %fd19, %fd21;
+	add.rn.f64 	%fd39, %fd38, %fd38;
 	neg.f64 	%fd40, %fd21;
 	fma.rn.f64 	%fd41, %fd40, %fd19, %fd39;
-	mul.f64 	%fd42, %fd18, %fd41;
-	mul.f64 	%fd43, %fd37, %fd22;
+	mul.rn.f64 	%fd42, %fd18, %fd41;
+	mul.rn.f64 	%fd43, %fd37, %fd22;
 	fma.rn.f64 	%fd44, %fd43, %fd21, %fd42;
 	cvt.rn.f64.s32	%fd45, %r34;
 	mov.f64 	%fd46, 0d3FE62E42FEFA39EF;
@@ -170,11 +170,11 @@ BB0_12:
 	neg.s32 	%r30, %r34;
 	cvt.rn.f64.s32	%fd48, %r30;
 	fma.rn.f64 	%fd49, %fd48, %fd46, %fd47;
-	sub.f64 	%fd50, %fd49, %fd21;
-	sub.f64 	%fd51, %fd44, %fd50;
+	sub.rn.f64 	%fd50, %fd49, %fd21;
+	sub.rn.f64 	%fd51, %fd44, %fd50;
 	mov.f64 	%fd52, 0d3C7ABC9E3B39803F;
 	fma.rn.f64 	%fd53, %fd45, %fd52, %fd51;
-	add.f64 	%fd55, %fd47, %fd53;
+	add.rn.f64 	%fd55, %fd47, %fd53;
 
 BB0_13:
 	st.global.f64 	[%rd1], %fd55;
